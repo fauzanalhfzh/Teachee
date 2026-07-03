@@ -1,0 +1,52 @@
+# REST Client testing file untuk Auth Module API
+# Gunakan ekstensi REST Client di VS Code atau jalankan curl manual.
+
+@baseUrl = http://localhost:8000/api/v1
+
+### 1. Register Guru Baru
+# @name registerTeacher
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Guru Budi Baru",
+  "email": "budibaru@school.com",
+  "password": "secretpassword",
+  "role": "teacher",
+  "avatar": "https://avatar.iran.liara.run/public/teacher"
+}
+
+### 2. Login Guru yang Baru Didaftarkan
+# @name loginTeacher
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "budibaru@school.com",
+  "password": "secretpassword"
+}
+
+### Salin token hasil login di atas dan letakkan di variabel token di bawah ini:
+@token = {{loginTeacher.response.body.access_token}}
+
+### 3. Mengambil Profil Saya (/me) menggunakan Token JWT
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### 4. Login Akun Seed (Guru Budi bawaan seeding database)
+# Karena seeding.py sudah diupdate menggunakan password hashing,
+# user default "teacher@school.com" dengan password "password123" bisa langsung login.
+# @name loginSeed
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "teacher@school.com",
+  "password": "password123"
+}
+
+### 5. Mengambil Profil Saya (/me) Akun Seed
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{loginSeed.response.body.access_token}}
+Accept: application/json

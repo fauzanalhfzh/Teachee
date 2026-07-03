@@ -1,0 +1,113 @@
+# REST Client testing file untuk Teacher Module Quiz API
+# Jalankan Docker Compose terlebih dahulu: docker-compose up --build
+# Periksa log kontainer 'quiz_fastapi_app' untuk menyalin UUID hasil seeding otomatis.
+
+@baseUrl = http://localhost:8000/api/v1
+
+# GANTI UUID DI BAWAH INI SESUAI DENGAN LOG STARTUP DOCKER:
+@teacherId = 1d006ee6-6cfe-4127-98d5-88431425019fi
+@classroomId = 8fdf5e3c-2c72-41d8-9259-97b2ffa67322
+
+### 1. Welcome Endpoint
+GET http://localhost:8000/
+Accept: application/json
+
+### 2. Generate Quiz Draft (Mathematics / Aljabar)
+# Endpoint Utama AI. Guru mengirim parameter (Topik, Kelas, Jumlah Soal).
+# Menghasilkan draf kuis dan draf soal baru.
+# @name generateQuiz
+POST {{baseUrl}}/quizzes/generate
+Content-Type: application/json
+
+{
+  "classroom_id": "{{classroomId}}",
+  "teacher_id": "{{teacherId}}",
+  "title": "Kuis Aljabar Linear Dasar",
+  "subject": "Matematika",
+  "topic": "Aljabar",
+  "num_questions": 5
+}
+
+### 3. GANTI VARIABEL BERIKUT BERDASARKAN HASIL RESPONSE GENERATE DI ATAS:
+@quizId = 4f964096-7c37-4c47-9759-cb14e213bf42
+@questionId = f4676be3-2947-497f-8566-ee599908cf67
+
+### 4. Regenerate a Specific Question (Regenerate Soal Bermasalah)
+# Jika ada 1 soal dari AI yang kurang cocok, guru bisa klik "Regenerate" hanya untuk soal spesifik tersebut.
+PUT {{baseUrl}}/questions/{{questionId}}/regenerate
+Accept: application/json
+
+### 5. Edit Manual Question Details (Edit Manual Soal)
+# Guru melakukan edit manual pada teks soal, pilihan opsi, atau kunci jawaban jika dirasa ada yang keliru.
+PATCH {{baseUrl}}/questions/{{questionId}}
+Content-Type: application/json
+
+{
+  "question_text": "Berapakah hasil dari 3x + 10 = 25? (Teks telah diedit manual oleh guru)",
+  "options": [
+    "x = 5",
+    "x = 15",
+    "x = 10",
+    "x = 2"
+  ],
+  "correct_answer": "x = 5",
+  "explanation": "Pindahkan 10 ke ruas kanan: 3x = 15. Bagi kedua sisi dengan 3: x = 5."
+}
+
+### 6. Delete a Specific Question (Hapus Soal dari Draf Kuis)
+# Menghapus soal tertentu dari draf paket kuis.
+DELETE {{baseUrl}}/questions/{{questionId}}
+Accept: application/json
+
+### 7. Publish Quiz (Publikasikan Kuis)
+# Mengubah status kuis dari draft menjadi published.
+POST {{baseUrl}}/quizzes/{{quizId}}/publish
+Accept: application/json
+
+### 8. View Quiz Reports & Student Performance (Laporan & Statistik Nilai Siswa)
+# Melihat statistik nilai dan performa pengerjaan seluruh anak di kelas untuk kuis tersebut.
+# (Endpoint ini akan otomatis me-mock data pengerjaan murid di database jika murid belum mengerjakannya!)
+GET {{baseUrl}}/quizzes/{{quizId}}/reports
+Accept: application/json
+
+### ==========================================
+### CLASSROOM CRUD ENDPOINTS
+### ==========================================
+
+### 9. Create Classroom
+# @name createClassroom
+POST {{baseUrl}}/classrooms
+Content-Type: application/json
+
+{
+  "name": "Kelas 11 Fisika",
+  "teacher_id": "{{teacherId}}"
+}
+
+### 10. List Classrooms
+GET {{baseUrl}}/classrooms
+Accept: application/json
+
+### 11. List Classrooms filtered by Teacher ID
+GET {{baseUrl}}/classrooms?teacher_id={{teacherId}}
+Accept: application/json
+
+### 12. Salin classroom_id baru dari response #9 untuk digunakan di bawah ini:
+@newClassroomId = f8c0021b-cfc1-4770-b183-5c7ea86d34e2
+
+### 13. Get Classroom Details with Enrolled Students list
+GET {{baseUrl}}/classrooms/{{newClassroomId}}
+Accept: application/json
+
+### 14. Update Classroom details
+PATCH {{baseUrl}}/classrooms/{{newClassroomId}}
+Content-Type: application/json
+
+{
+  "name": "Kelas 11 Fisika - Unggulan"
+}
+
+### 15. Delete Classroom
+DELETE {{baseUrl}}/classrooms/{{newClassroomId}}
+Accept: application/json
+
