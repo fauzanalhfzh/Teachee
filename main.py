@@ -31,7 +31,7 @@ app.include_router(api_router, prefix="/api/v1")
 async def root():
     return {
         "status": "online",
-        "message": "Welcome to Teacher Quiz AI API (Raw SQL)!",
+        "message": "Welcome to Teachee API (Raw SQL)!",
         "documentation": "/docs",
         "endpoints": {
             "generate_quiz": "POST /api/v1/quizzes/generate",
