@@ -134,3 +134,67 @@ Proyek ini dilengkapi dengan file REST Client (`.http`) untuk mempermudah Anda m
    }
    ```
 4. Cobalah mengambil API Laporan `/api/v1/quizzes/{quiz_id}/reports`. Jika siswa belum mengisi kuis tersebut, sistem akan secara otomatis mensimulasikan nilai dan pengerjaan murid-murid di kelas 10A untuk mempermudah visualisasi data statistik!
+
+---
+
+## 🐳 Panduan Docker untuk Tim Frontend (FE)
+
+Bagi tim Frontend yang ingin menjalankan server Backend secara lokal tanpa perlu menginstal Python atau PostgreSQL di mesin lokal, ikuti panduan berikut ini:
+
+### 1. Prasyarat
+Pastikan Anda sudah menginstal **Docker Desktop** dan aplikasinya sedang berjalan di komputer Anda.
+
+### 2. Cara Menjalankan Backend (Background Mode)
+Agar terminal Anda tidak terblokir oleh log server, jalankan kontainer dalam mode *detached* (`-d`):
+
+```bash
+docker-compose up -d --build
+```
+
+Setelah perintah selesai dijalankan, kontainer backend (`quiz_fastapi_app`), database PostgreSQL (`quiz_postgres_db`), dan pgAdmin (`quiz_pgadmin`) akan berjalan di latar belakang.
+
+### 3. Memantau Status & Log Kontainer
+- **Cek Status Kontainer**:
+  ```bash
+  docker ps
+  ```
+  Pastikan ada tiga kontainer berjalan.
+  
+- **Melihat Log Realtime** (untuk melihat error, debug, atau mengambil UUID hasil seeding):
+  ```bash
+  docker logs -f quiz_fastapi_app
+  ```
+
+### 4. Integrasi dengan Frontend (API Base URL)
+- **Base URL API**: `http://localhost:8000/api/v1`
+- **CORS**: CORS telah diaktifkan untuk semua origin (`*`) pada port lokal backend, sehingga Anda dapat langsung melakukan `fetch` atau `axios` dari repositori frontend Anda (seperti `http://localhost:3000` atau `http://localhost:5173`) tanpa kendala CORS.
+
+### 5. Dokumentasi API Interaktif (Swagger UI)
+Anda bisa melihat spesifikasi endpoint, parameter request, dan skema respons di:
+👉 **[http://localhost:8000/docs](http://localhost:8000/docs)** (Swagger UI)
+
+Anda juga bisa melakukan ujicoba request (Try it out) langsung melalui halaman tersebut.
+
+### 6. Akun Uji Coba Default & Seeding
+Database akan otomatis terisi data awal ketika pertama kali dijalankan. Gunakan akun berikut untuk login lewat API `/api/v1/auth/login` guna mendapatkan Token JWT:
+
+- **Akun Guru (Teacher)**:
+  - **Email**: `teacher@school.com`
+  - **Password**: `password123`
+- **Akun Siswa (Student)**:
+  - **Email**: `adit@school.com` (atau `bambang@school.com`)
+  - **Password**: `password123`
+
+> [!TIP]
+> **UUID Guru** dan **UUID Kelas** default yang diperlukan saat membuat kuis baru (`POST /quizzes/generate`) akan tercetak pada log startup kontainer. Gunakan `docker logs quiz_fastapi_app` untuk melihat UUID tersebut.
+
+### 7. Perintah Docker Penting Lainnya
+- **Menghentikan Server**:
+  ```bash
+  docker-compose down
+  ```
+- **Menghentikan dan Menghapus Database (Reset Data)**:
+  Jika ingin menghapus semua database kuis dan melakukan seed ulang dari awal, hapus volume PostgreSQL dengan perintah:
+  ```bash
+  docker-compose down -v
+  ```

@@ -1,5 +1,6 @@
 import logging
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from core.database import init_db, get_db_connection
 from core.seeding import seed_database
 from app.api.v1.router import api_router
@@ -22,6 +23,15 @@ app = FastAPI(
     title="Teacher Quiz AI API",
     description="Backend API for Teacher Module enabling quiz generation, questions regeneration/management, publishing, and statistics reporting using Raw SQL PostgreSQL.",
     version="1.0.0"
+)
+
+# Enable CORS for frontend development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allow all origins for easier frontend integration during testing
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Register routers
