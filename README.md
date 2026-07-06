@@ -1,4 +1,4 @@
-# Teachee API (Raw SQL)
+# Teachee API 
 
 Backend API untuk Teacher Module yang memungkinkan pembuatan kuis (AI-generated), pengelolaan pertanyaan (regenerasi/edit/hapus), publikasi kuis, manajemen kelas (classroom), serta pelaporan statistik nilai siswa. Project ini dibangun menggunakan **FastAPI** dan menggunakan **Raw SQL (PostgreSQL)** untuk interaksi database.
 
