@@ -124,7 +124,8 @@ class AIService:
         elif "sejarah" in topic_lower or "history" in topic_lower:
             bank = HISTORY_BANK
         else:
-            bank = DEFAULT_BANK
+            return
+            # bank = DEFAULT_BANK
 
         for i in range(num_questions):
             if i < len(bank):
