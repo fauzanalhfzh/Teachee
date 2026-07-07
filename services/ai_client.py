@@ -8,29 +8,8 @@ import httpx
 logger = logging.getLogger(__name__)
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
-AI_MODEL = os.getenv("AI_MODEL", "qwen3.5:latest")
+AI_MODEL = os.getenv("AI_MODEL", "quizzy:latest")
 REQUEST_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
-
-# build your personal model
-SYSTEM_PROMPT = (
-    "Anda adalah seorang guru profesional yang membuat soal pilihan ganda berkualitas tinggi.\n\n"
-    "Anda harus menghasilkan soal dalam Bahasa Indonesia yang:\n"
-    "1. Sesuai dengan topik yang diminta\n"
-    "2. Memiliki 4 pilihan jawaban (A, B, C, D)\n"
-    "3. Memiliki satu jawaban yang benar\n"
-    "4. Dilengkapi dengan penjelasan singkat mengapa jawaban tersebut benar\n\n"
-    'Output HARUS berupa JSON array (format JSON valid, tanpa teks lain):\n'
-    "[\n"
-    '  {\n'
-    '    "question_text": "teks soal",\n'
-    '    "options": ["pilihan A", "pilihan B", "pilihan C", "pilihan D"],\n'
-    '    "correct_answer": "pilihan yang benar (salah satu dari options)",\n'
-    '    "explanation": "penjelasan singkat"\n'
-    "  }\n"
-    "]\n\n"
-    "Pastikan correct_answer persis sama dengan salah satu string di options.\n"
-    "Hanya output JSON array, tanpa markdown, tanpa pembatas apapun."
-)
 
 
 class OllamaClient:
@@ -39,7 +18,7 @@ class OllamaClient:
     def generate(
         prompt: str,
         num_questions: int = 5,
-        temperature: float = 0.7,
+        temperature: float = 0.3,
     ) -> Optional[List[Dict[str, Any]]]:
         user_prompt = (
             f"Buatkan {num_questions} soal pilihan ganda tentang: \"{prompt}\".\n"
@@ -49,7 +28,6 @@ class OllamaClient:
         payload = {
             "model": AI_MODEL,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
             "stream": False,

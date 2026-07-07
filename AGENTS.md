@@ -78,7 +78,10 @@ Classroom: `Kelas 10A` (teacher_id and classroom_id printed to container logs at
 
 ## AI details
 - Ollama endpoint: `http://ollama:11434` (container) or `OLLAMA_URL` env var
-- Default model: `qwen2.5:7b`
+- Default model: `quizzy:latest` — custom Ollama model (see `modelfiles/QuizModelfile`)
+  - Built from `qwen3.5:latest` with baked-in system prompt & `temperature 0.3`
+  - Build via `bash scripts/setup-ollama.sh` (pull base + `ollama create`)
+- System prompt is embedded in the Modelfile (not in Python code)
 - Falls back to hardcoded banks (`MATH_BANK`, `HISTORY_BANK`, `DEFAULT_BANK` in `services/ai_service.py`)
 - Report endpoint auto-seeds mock student attempts if none exist (for testing convenience)
 - Manual testing: use `.http` files in repo root (VS Code REST Client)

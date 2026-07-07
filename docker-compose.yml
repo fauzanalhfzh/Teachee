@@ -28,7 +28,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:password123@db:5432/quiz_db
       - OLLAMA_URL=http://ollama:11434
-      - AI_MODEL=qwen2.5:7b
+      - AI_MODEL=quizzy:latest
+      - OLLAMA_TIMEOUT=120
 
   pgadmin:
     image: dpage/pgadmin4
@@ -50,6 +51,7 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+      - ./modelfiles:/modelfiles
 
 volumes:
   pgdata:
