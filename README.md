@@ -52,7 +52,7 @@ Metode ini paling mudah karena Docker akan menginisialisasi database PostgreSQL,
 
 1. Jalankan perintah berikut di direktori root proyek:
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 2. Aplikasi akan berjalan di port `8000`:
    - **Base API URL**: `http://localhost:8000`
