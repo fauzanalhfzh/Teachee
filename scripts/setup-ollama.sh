@@ -10,8 +10,8 @@ until docker exec quiz_ollama ollama list >/dev/null 2>&1; do
   sleep 3
 done
 
-echo "Mengunduh base model qwen3.5:latest..."
-docker exec quiz_ollama ollama pull qwen3.5:latest
+echo "Mengunduh base model qwen3.5:0.8b..."
+docker exec quiz_ollama ollama pull qwen3.5:0.8b
 
 echo "Membuat custom model quizzy:latest dari Modelfile..."
 docker cp modelfiles/QuizModelfile quiz_ollama:/tmp/QuizModelfile

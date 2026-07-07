@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
 AI_MODEL = os.getenv("AI_MODEL", "quizzy:latest")
-REQUEST_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
+REQUEST_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "300"))
 
 
 class OllamaClient:
