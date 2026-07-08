@@ -42,7 +42,7 @@ def generate_quiz(request: Request, payload: QuizGenerateRequest, conn = Depends
             VALUES (%s, %s, %s, %s, %s, %s, 'draft')
             RETURNING *;
             """,
-            (quiz_id, str(payload.classroom_id), str(payload.teacher_id), payload.title, payload.subject, payload.topic)
+            (quiz_id, str(payload.classroom_id), str(payload.teacher_id), payload.topic, payload.topic, payload.topic)
         )
         quiz_row = cur.fetchone()
 

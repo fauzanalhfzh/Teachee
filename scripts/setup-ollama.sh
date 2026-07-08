@@ -19,4 +19,4 @@ docker exec teachee_ollama ollama create quizzy:latest -f /tmp/QuizModelfile
 
 echo ""
 echo "✅ Selesai! Custom model 'quizzy:latest' siap digunakan."
-echo "   Cek dengan: docker exec quiz_ollama ollama list"
+echo "   Cek dengan: docker exec teachee_ollama ollama list"

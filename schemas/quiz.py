@@ -12,8 +12,6 @@ class QuizStatus(str, enum.Enum):
 class QuizGenerateRequest(BaseModel):
     classroom_id: UUID
     teacher_id: UUID
-    title: str
-    subject: str
     topic: str
     num_questions: int = Field(default=5, ge=1, le=50)
 
