@@ -3,7 +3,7 @@ version: '3.8'
 services:
   db:
     image: postgres:15-alpine
-    container_name: teachee_postgres_db
+    container_name: teachee_db
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -16,7 +16,7 @@ services:
 
   web:
     build: .
-    container_name: teachee_fastapi_app
+    container_name: teachee_webapp
     restart: always
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ports:
@@ -29,11 +29,11 @@ services:
       - DATABASE_URL=postgresql://postgres:password123@db:5432/quiz_db
       - OLLAMA_URL=http://ollama:11434
       - AI_MODEL=quizzy:latest
-      - OLLAMA_TIMEOUT=300
+      - OLLAMA_TIMEOUT=600
 
   pgadmin:
     image: dpage/pgadmin4
-    container_name: quiz_pgadmin
+    container_name: pgadmin
     restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@school.com
@@ -45,7 +45,7 @@ services:
 
   ollama:
     image: ollama/ollama
-    container_name: quiz_ollama
+    container_name: teachee_ollama
     restart: always
     ports:
       - "11434:11434"

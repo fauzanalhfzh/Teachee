@@ -71,6 +71,12 @@ Metode ini paling mudah karena Docker akan menginisialisasi database PostgreSQL,
    - **ReDoc Docs**: `http://localhost:8000/redoc`
    - **pgAdmin**: `http://localhost:8080` (Email: `admin@school.com`, Password: `adminpassword`)
 
+4. Siapkan model AI Ollama (cukup sekali):
+   ```bash
+   bash scripts/setup-ollama.sh
+   ```
+   > Script ini menunggu Ollama siap, mengunduh base model, lalu membuat custom model `quizzy:latest` dari `modelfiles/QuizModelfile`.
+
 ### Opsi B: Menjalankan Secara Lokal (Tanpa Docker)
 
 1. Buat virtual environment Python dan aktifkan:

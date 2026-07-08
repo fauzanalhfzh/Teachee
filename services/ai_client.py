@@ -38,7 +38,7 @@ class OllamaClient:
         }
 
         try:
-            with httpx.Client(timeout=httpx.Timeout(connect=3.0, read=REQUEST_TIMEOUT)) as client:
+            with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT)) as client:
                 resp = client.post(f"{OLLAMA_URL}/api/chat", json=payload)
                 resp.raise_for_status()
                 data = resp.json()

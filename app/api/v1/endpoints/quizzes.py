@@ -31,6 +31,8 @@ def generate_quiz(request: Request, payload: QuizGenerateRequest, conn = Depends
 
         # 3. Generate questions via AI Service
         generated_questions = AIService.generate_questions(payload.topic, payload.num_questions)
+        if not generated_questions:
+            raise HTTPException(status_code=500, detail="Failed to generate questions")
 
         # 4. Save Quiz draft
         quiz_id = str(uuid.uuid4())
