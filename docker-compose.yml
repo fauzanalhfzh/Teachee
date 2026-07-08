@@ -27,6 +27,9 @@ services:
       - db
     environment:
       - DATABASE_URL=postgresql://postgres:password123@db:5432/quiz_db
+      - AI_PROVIDER=gemini
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=gemini-2.0-flash
       - OLLAMA_URL=http://ollama:11434
       - AI_MODEL=quizzy:latest
       - OLLAMA_TIMEOUT=600

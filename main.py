@@ -64,7 +64,7 @@ async def root():
 
 @app.get("/health")
 async def health():
-    status = {"database": "unhealthy", "ollama": "unknown"}
+    status = {"database": "unhealthy", "ai_provider": "unknown"}
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -74,14 +74,21 @@ async def health():
     except Exception as e:
         status["database"] = f"unhealthy: {e}"
 
-    try:
-        import httpx
-        OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
-        with httpx.Client(timeout=2) as client:
-            resp = client.get(f"{OLLAMA_URL}/api/tags")
-            status["ollama"] = "healthy" if resp.status_code == 200 else "unreachable"
-    except Exception:
-        status["ollama"] = "unreachable"
+    ai_provider = os.getenv("AI_PROVIDER", "ollama").lower()
+    status["ai_provider"] = ai_provider
+
+    if ai_provider == "gemini":
+        api_key = os.getenv("GEMINI_API_KEY", "")
+        status["gemini_api_key_set"] = bool(api_key)
+    elif ai_provider == "ollama":
+        try:
+            import httpx
+            OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
+            with httpx.Client(timeout=2) as client:
+                resp = client.get(f"{OLLAMA_URL}/api/tags")
+                status["ollama"] = "healthy" if resp.status_code == 200 else "unreachable"
+        except Exception:
+            status["ollama"] = "unreachable"
 
     overall = "healthy" if status["database"] == "healthy" else "degraded"
     return {"status": overall, "checks": status}

@@ -1,10 +1,20 @@
+import os
 import random
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from services.ai_client import OllamaClient
 
 logger = logging.getLogger(__name__)
+
+AI_PROVIDER = os.getenv("AI_PROVIDER", "ollama").lower()
+
+
+def _get_ai_client():
+    if AI_PROVIDER == "gemini":
+        from services.gemini_client import GeminiClient
+        return GeminiClient
+    return OllamaClient
 
 MATH_BANK = [
     {
@@ -254,21 +264,27 @@ class AIService:
 
     @staticmethod
     def generate_questions(topic: str, num_questions: int) -> List[Dict[str, Any]]:
-        questions = OllamaClient.generate(topic, num_questions)
+        client = _get_ai_client()
+        provider_name = AI_PROVIDER
+
+        questions = client.generate(topic, num_questions)
         if questions and len(questions) > 0:
-            logger.info(f"Generated {len(questions)} questions via Ollama for topic: {topic}")
+            logger.info(f"Generated {len(questions)} questions via {provider_name} for topic: {topic}")
             return questions
 
-        logger.warning(f"Ollama unavailable, using fallback question bank for topic: {topic}")
+        logger.warning(f"{provider_name} unavailable, trying fallback bank for topic: {topic}")
         return AIService._fallback_generate(topic, num_questions)
 
     @staticmethod
     def regenerate_single_question(topic: str) -> Dict[str, Any]:
-        questions = OllamaClient.generate(topic, 1)
+        client = _get_ai_client()
+        provider_name = AI_PROVIDER
+
+        questions = client.generate(topic, 1)
         if questions and len(questions) > 0:
             return questions[0]
 
-        logger.warning(f"Ollama unavailable, using fallback for single question: {topic}")
+        logger.warning(f"{provider_name} unavailable, using fallback for single question: {topic}")
         questions = AIService._fallback_generate(topic, 1)
         return questions[0]
 
