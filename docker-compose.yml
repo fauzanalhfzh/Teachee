@@ -30,6 +30,7 @@ services:
       - OLLAMA_URL=http://ollama:11434
       - AI_MODEL=quizzy:latest
       - OLLAMA_TIMEOUT=600
+      - JWT_SECRET_KEY=d3aea72647a1f9847954e1e745e3d878c86482d4dab9d01b52a910f92243ddac
 
   pgadmin:
     image: dpage/pgadmin4
