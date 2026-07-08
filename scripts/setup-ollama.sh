@@ -5,7 +5,7 @@
 set -e
 
 echo "Menunggu Ollama siap..."
-until docker exec quiz_ollama ollama list >/dev/null 2>&1; do
+until docker exec teachee_ollama ollama list >/dev/null 2>&1; do
   echo "Menunggu Ollama service..."
   sleep 3
 done
@@ -15,7 +15,7 @@ docker exec quiz_ollama ollama pull qwen3.5:0.8b
 
 echo "Membuat custom model quizzy:latest dari Modelfile..."
 docker cp modelfiles/QuizModelfile quiz_ollama:/tmp/QuizModelfile
-docker exec quiz_ollama ollama create quizzy:latest -f /tmp/QuizModelfile
+docker exec teachee_ollama ollama create quizzy:latest -f /tmp/QuizModelfile
 
 echo ""
 echo "✅ Selesai! Custom model 'quizzy:latest' siap digunakan."
