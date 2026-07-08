@@ -5,7 +5,7 @@ from uuid import UUID
 from typing import List, Optional
 
 from core.database import get_db
-from schemas.classroom import ClassroomCreate, ClassroomUpdate, ClassroomResponse, ClassroomDetailResponse, StudentInClassroom
+from schemas.classroom import ClassroomCreate, ClassroomUpdate, ClassroomResponse, ClassroomDetailResponse, StudentInClassroom, EnrollStudentRequest
 
 router = APIRouter()
 
@@ -31,12 +31,23 @@ def create_classroom(payload: ClassroomCreate, conn = Depends(get_db)):
         return classroom
 
 @router.get("", response_model=List[ClassroomResponse])
-def list_classrooms(teacher_id: Optional[UUID] = None, conn = Depends(get_db)):
+def list_classrooms(
+    teacher_id: Optional[UUID] = None,
+    limit: int = 50,
+    offset: int = 0,
+    conn = Depends(get_db),
+):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         if teacher_id:
-            cur.execute("SELECT * FROM classrooms WHERE teacher_id = %s ORDER BY created_at DESC;", (str(teacher_id),))
+            cur.execute(
+                "SELECT * FROM classrooms WHERE teacher_id = %s ORDER BY created_at DESC LIMIT %s OFFSET %s;",
+                (str(teacher_id), limit, offset)
+            )
         else:
-            cur.execute("SELECT * FROM classrooms ORDER BY created_at DESC;")
+            cur.execute(
+                "SELECT * FROM classrooms ORDER BY created_at DESC LIMIT %s OFFSET %s;",
+                (limit, offset)
+            )
         return cur.fetchall()
 
 @router.get("/{classroom_id}", response_model=ClassroomDetailResponse)
@@ -71,29 +82,30 @@ def get_classroom(classroom_id: UUID, conn = Depends(get_db)):
         res_dict["students"] = [dict(s) for s in students_rows]
         return res_dict
 
+ALLOWED_CLASSROOM_COLUMNS = {"name", "teacher_id"}
+
 @router.patch("/{classroom_id}", response_model=ClassroomResponse)
 def update_classroom(classroom_id: UUID, payload: ClassroomUpdate, conn = Depends(get_db)):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # Verify classroom exists
         cur.execute("SELECT id FROM classrooms WHERE id = %s;", (str(classroom_id),))
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Classroom not found")
 
-        # Verify teacher if updated
         if payload.teacher_id:
             cur.execute("SELECT id FROM users WHERE id = %s AND role = 'teacher';", (str(payload.teacher_id),))
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="Teacher not found")
 
-        # Dynamic SQL update builder
-        update_fields = []
-        params = []
         update_data = payload.model_dump(exclude_unset=True)
         if not update_data:
             cur.execute("SELECT * FROM classrooms WHERE id = %s;", (str(classroom_id),))
             return cur.fetchone()
 
+        update_fields = []
+        params = []
         for key, val in update_data.items():
+            if key not in ALLOWED_CLASSROOM_COLUMNS:
+                raise HTTPException(status_code=400, detail=f"Invalid field: {key}")
             update_fields.append(f"{key} = %s")
             params.append(str(val) if isinstance(val, UUID) else val)
 
@@ -110,6 +122,46 @@ def update_classroom(classroom_id: UUID, payload: ClassroomUpdate, conn = Depend
         updated_classroom = cur.fetchone()
         conn.commit()
         return updated_classroom
+
+@router.post("/{classroom_id}/students", status_code=status.HTTP_201_CREATED)
+def enroll_student(classroom_id: UUID, payload: EnrollStudentRequest, conn = Depends(get_db)):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT id FROM classrooms WHERE id = %s;", (str(classroom_id),))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Classroom not found")
+
+        cur.execute("SELECT id FROM users WHERE id = %s AND role = 'student';", (str(payload.student_id),))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Student not found")
+
+        cur.execute(
+            "SELECT 1 FROM classroom_student WHERE classroom_id = %s AND student_id = %s;",
+            (str(classroom_id), str(payload.student_id))
+        )
+        if cur.fetchone():
+            raise HTTPException(status_code=409, detail="Student already enrolled")
+
+        cur.execute(
+            """
+            INSERT INTO classroom_student (classroom_id, student_id)
+            VALUES (%s, %s);
+            """,
+            (str(classroom_id), str(payload.student_id))
+        )
+        conn.commit()
+        return {"message": "Student enrolled successfully"}
+
+@router.delete("/{classroom_id}/students/{student_id}", status_code=status.HTTP_200_OK)
+def unenroll_student(classroom_id: UUID, student_id: UUID, conn = Depends(get_db)):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "DELETE FROM classroom_student WHERE classroom_id = %s AND student_id = %s RETURNING 1;",
+            (str(classroom_id), str(student_id))
+        )
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Student not found in this classroom")
+        conn.commit()
+        return {"message": "Student unenrolled successfully"}
 
 @router.delete("/{classroom_id}", status_code=status.HTTP_200_OK)
 def delete_classroom(classroom_id: UUID, conn = Depends(get_db)):

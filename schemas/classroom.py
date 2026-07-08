@@ -18,6 +18,9 @@ class ClassroomUpdate(BaseModel):
     name: Optional[str] = None
     teacher_id: Optional[UUID] = None
 
+class EnrollStudentRequest(BaseModel):
+    student_id: UUID
+
 class ClassroomResponse(BaseModel):
     id: UUID
     name: str

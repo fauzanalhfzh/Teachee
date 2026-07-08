@@ -42,32 +42,28 @@ def regenerate_question(question_id: UUID, conn = Depends(get_db)):
         conn.commit()
         return updated_question
 
+ALLOWED_QUESTION_COLUMNS = {"question_text", "options", "correct_answer", "explanation"}
+
 @router.patch("/{question_id}", response_model=QuestionResponse)
 def update_question(question_id: UUID, payload: QuestionUpdate, conn = Depends(get_db)):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # Check if question exists
         cur.execute("SELECT id FROM questions WHERE id = %s;", (str(question_id),))
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Question not found")
 
-        # Perform a dynamic SQL UPDATE query
-        update_fields = []
-        params = []
-        
         update_data = payload.model_dump(exclude_unset=True)
         if not update_data:
-            # If no changes provided, return existing question
             cur.execute("SELECT * FROM questions WHERE id = %s;", (str(question_id),))
             return cur.fetchone()
 
+        update_fields = []
+        params = []
         for key, val in update_data.items():
+            if key not in ALLOWED_QUESTION_COLUMNS:
+                raise HTTPException(status_code=400, detail=f"Invalid field: {key}")
             update_fields.append(f"{key} = %s")
-            if key == "options":
-                params.append(json.dumps(val))
-            else:
-                params.append(val)
-        
-        # Add timestamp and ID
+            params.append(json.dumps(val) if key == "options" else val)
+
         update_fields.append("updated_at = CURRENT_TIMESTAMP")
         params.append(str(question_id))
 

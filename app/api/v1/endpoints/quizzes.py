@@ -1,11 +1,12 @@
 import json
 import uuid
 import random
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from psycopg2.extras import RealDictCursor
 from uuid import UUID
 
 from core.database import get_db
+from core.limiter import limiter
 from schemas.quiz import QuizGenerateRequest, QuizResponse, QuizPublishResponse
 from schemas.report import QuizReportResponse, QuizReportStats, StudentReportResult
 from services.ai_service import AIService
@@ -13,7 +14,8 @@ from services.ai_service import AIService
 router = APIRouter()
 
 @router.post("/generate", response_model=QuizResponse, status_code=status.HTTP_201_CREATED)
-def generate_quiz(payload: QuizGenerateRequest, conn = Depends(get_db)):
+@limiter.limit("30/hour")
+def generate_quiz(request: Request, payload: QuizGenerateRequest, conn = Depends(get_db)):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         # 1. Verify classroom exists
         cur.execute("SELECT id FROM classrooms WHERE id = %s;", (str(payload.classroom_id),))
@@ -81,6 +83,15 @@ def publish_quiz(quiz_id: UUID, conn = Depends(get_db)):
         
         conn.commit()
         return quiz
+
+@router.delete("/{quiz_id}", status_code=status.HTTP_200_OK)
+def delete_quiz(quiz_id: UUID, conn = Depends(get_db)):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("DELETE FROM quizzes WHERE id = %s RETURNING id;", (str(quiz_id),))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Quiz not found")
+        conn.commit()
+        return {"message": "Quiz deleted successfully"}
 
 @router.get("/{quiz_id}/reports", response_model=QuizReportResponse)
 def get_quiz_report(quiz_id: UUID, conn = Depends(get_db)):

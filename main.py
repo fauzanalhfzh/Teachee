@@ -1,18 +1,19 @@
 import logging
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from core.database import init_db, get_db_connection
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from core.limiter import limiter
+from core.database import init_db, get_db_connection, get_connection_pool
 from core.seeding import seed_database
+from core.security import JWT_SECRET_KEY
 from app.api.v1.router import api_router
 
-# Configure logger
 logger = logging.getLogger("uvicorn.error")
 
-# Run database setup (DDL query tables initialization)
 try:
     init_db()
-    
-    # Perform database seeding
     logger.info("Running database seeding...")
     with get_db_connection() as conn:
         seed_database(conn)
@@ -20,22 +21,30 @@ except Exception as e:
     logger.error(f"Database initialization failed: {e}")
 
 app = FastAPI(
-    title="Teacher Quiz AI API",
-    description="Backend API for Teacher Module enabling quiz generation, questions regeneration/management, publishing, and statistics reporting using Raw SQL PostgreSQL.",
+    title="Teachee API",
+    description="Backend API for Teachee Module enabling quiz generation, questions regeneration/management, publishing, and statistics reporting using Raw SQL PostgreSQL.",
     version="1.0.0"
 )
 
-# Enable CORS for frontend development
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all origins for easier frontend integration during testing
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register routers
 app.include_router(api_router, prefix="/api/v1")
+
+@app.on_event("shutdown")
+def shutdown():
+    pool = get_connection_pool()
+    if pool:
+        pool.closeall()
+        logger.info("Database connection pool closed.")
 
 @app.get("/")
 async def root():
@@ -52,3 +61,27 @@ async def root():
             "delete_question": "DELETE /api/v1/questions/{question_id}"
         }
     }
+
+@app.get("/health")
+async def health():
+    status = {"database": "unhealthy", "ollama": "unknown"}
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1;")
+                cur.fetchone()
+        status["database"] = "healthy"
+    except Exception as e:
+        status["database"] = f"unhealthy: {e}"
+
+    try:
+        import httpx
+        OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
+        with httpx.Client(timeout=2) as client:
+            resp = client.get(f"{OLLAMA_URL}/api/tags")
+            status["ollama"] = "healthy" if resp.status_code == 200 else "unreachable"
+    except Exception:
+        status["ollama"] = "unreachable"
+
+    overall = "healthy" if status["database"] == "healthy" else "degraded"
+    return {"status": overall, "checks": status}

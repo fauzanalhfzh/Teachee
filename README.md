@@ -50,11 +50,22 @@ Pastikan Anda telah memasang tool berikut di komputer Anda:
 
 Metode ini paling mudah karena Docker akan menginisialisasi database PostgreSQL, server FastAPI, dan pgAdmin secara otomatis.
 
-1. Jalankan perintah berikut di direktori root proyek:
+1. Salin `.env.example` menjadi `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+   > [!IMPORTANT]
+   > **JWT_SECRET_KEY wajib diisi** — gunakan key acak berikut:
+   > ```bash
+   > python3 -c "import secrets; print(secrets.token_hex(32))"
+   > ```
+   > Tempelkan hasilnya ke `JWT_SECRET_KEY` di file `.env`.
+
+2. Jalankan perintah berikut di direktori root proyek:
    ```bash
    docker compose up --build
    ```
-2. Aplikasi akan berjalan di port `8000`:
+3. Aplikasi akan berjalan di port `8000`:
    - **Base API URL**: `http://localhost:8000`
    - **Swagger UI Docs**: `http://localhost:8000/docs`
    - **ReDoc Docs**: `http://localhost:8000/redoc`
@@ -74,12 +85,21 @@ Metode ini paling mudah karena Docker akan menginisialisasi database PostgreSQL,
    ```bash
    pip install -r requirements.txt
    ```
-3. Konfigurasikan file `.env`. Anda bisa membuat database PostgreSQL lokal dan menyesuaikan URL koneksinya:
+3. Salin `.env.example` menjadi `.env` dan sesuaikan konfigurasinya:
+   ```bash
+   cp .env.example .env
+   ```
+   Contoh isi `.env`:
    ```env
    DATABASE_URL=postgresql://<user>:<password>@localhost:5432/<nama_db>
-   JWT_SECRET_KEY=super-secret-key-change-in-production
+   JWT_SECRET_KEY=change-this-to-a-random-secret-key
    JWT_ALGORITHM=HS256
    ```
+   > [!IMPORTANT]
+   > **JWT_SECRET_KEY wajib diisi** — server tidak akan start tanpa key ini. Gunakan key acak yang aman:
+   > ```bash
+   > python3 -c "import secrets; print(secrets.token_hex(32))"
+   > ```
 4. Jalankan aplikasi menggunakan Uvicorn:
    ```bash
    uvicorn main:app --reload

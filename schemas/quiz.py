@@ -1,5 +1,5 @@
 import enum
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from uuid import UUID
 from typing import List, Optional
 from datetime import datetime
@@ -15,7 +15,7 @@ class QuizGenerateRequest(BaseModel):
     title: str
     subject: str
     topic: str
-    num_questions: int = 5
+    num_questions: int = Field(default=5, ge=1, le=50)
 
 class QuizResponse(BaseModel):
     id: UUID

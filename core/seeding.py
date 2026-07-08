@@ -1,9 +1,12 @@
+import os
 import uuid
 import logging
 from psycopg2.extras import RealDictCursor
 from core.security import hash_password
 
 logger = logging.getLogger("uvicorn.error")
+
+SEED_PASSWORD = os.getenv("SEED_PASSWORD", "password123")
 
 def seed_database(conn):
     # Use RealDictCursor to fetch rows as dicts
@@ -25,7 +28,7 @@ def seed_database(conn):
 
         logger.info("===== SEEDING DATABASE WITH TEST DATA (RAW SQL) =====")
         
-        hashed_pwd = hash_password("password123")
+        hashed_pwd = hash_password(SEED_PASSWORD)
         
         # 1. Insert Teacher
         teacher_id = str(uuid.uuid4())
