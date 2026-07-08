@@ -11,10 +11,10 @@ until docker exec teachee_ollama ollama list >/dev/null 2>&1; do
 done
 
 echo "Mengunduh base model qwen3.5:0.8b..."
-docker exec quiz_ollama ollama pull qwen3.5:0.8b
+docker exec teachee_ollama ollama pull qwen3.5:0.8b
 
 echo "Membuat custom model quizzy:latest dari Modelfile..."
-docker cp modelfiles/QuizModelfile quiz_ollama:/tmp/QuizModelfile
+docker cp modelfiles/QuizModelfile teachee_ollama:/tmp/QuizModelfile
 docker exec teachee_ollama ollama create quizzy:latest -f /tmp/QuizModelfile
 
 echo ""
