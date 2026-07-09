@@ -224,7 +224,7 @@ class VllmClient:
                 logger.error(f"vLLM returned non-list: {type(result)}")
                 return None
 
-            logger.info(f"vLLM generated {len(result)} items for topic: {prompt}")
+            logger.info(f"vLLM generated {len(result)} items for topic: {user_prompt}")
             return result
 
         except httpx.TimeoutException:
