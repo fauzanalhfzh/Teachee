@@ -53,8 +53,12 @@ async def root():
         "message": "Welcome to Teachee API (Raw SQL)!",
         "documentation": "/docs",
         "endpoints": {
+            "list_quizzes": "GET /api/v1/quizzes",
+            "get_quiz": "GET /api/v1/quizzes/{quiz_id}",
             "generate_quiz": "POST /api/v1/quizzes/generate",
+            "update_quiz": "PATCH /api/v1/quizzes/{quiz_id}",
             "publish_quiz": "POST /api/v1/quizzes/{quiz_id}/publish",
+            "delete_quiz": "DELETE /api/v1/quizzes/{quiz_id}",
             "quiz_reports": "GET /api/v1/quizzes/{quiz_id}/reports",
             "regenerate_question": "PUT /api/v1/questions/{question_id}/regenerate",
             "edit_question": "PATCH /api/v1/questions/{question_id}",

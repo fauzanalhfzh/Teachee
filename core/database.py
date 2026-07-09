@@ -78,6 +78,57 @@ def init_db():
         PRIMARY KEY (classroom_id, student_id)
     );
 
+    CREATE TABLE IF NOT EXISTS learning_modules (
+        id UUID PRIMARY KEY,
+        classroom_id UUID NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
+        teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        topic VARCHAR(255) NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS module_sections (
+        id UUID PRIMARY KEY,
+        module_id UUID NOT NULL REFERENCES learning_modules(id) ON DELETE CASCADE,
+        section_order INT NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        image_url VARCHAR(500),
+        image_prompt TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS module_exercises (
+        id UUID PRIMARY KEY,
+        module_id UUID NOT NULL REFERENCES learning_modules(id) ON DELETE CASCADE,
+        exercise_order INT NOT NULL,
+        exercise_type VARCHAR(50) NOT NULL CHECK (exercise_type IN ('multiple_choice', 'fill_blank', 'true_false', 'matching', 'ordering')),
+        question_text TEXT NOT NULL,
+        options JSONB,
+        correct_answer TEXT NOT NULL,
+        explanation TEXT,
+        points INT DEFAULT 10,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS student_module_progress (
+        id UUID PRIMARY KEY,
+        module_id UUID NOT NULL REFERENCES learning_modules(id) ON DELETE CASCADE,
+        student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content_completed BOOLEAN DEFAULT FALSE,
+        content_completed_at TIMESTAMP WITH TIME ZONE,
+        exercises_completed BOOLEAN DEFAULT FALSE,
+        exercises_completed_at TIMESTAMP WITH TIME ZONE,
+        exercise_answers JSONB,
+        exercise_score FLOAT,
+        quiz_unlocked BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (module_id, student_id)
+    );
+
     -- Migration guard: drop legacy columns from pre-existing quizzes tables.
     -- Skipped entirely when the table does not yet exist (fresh database).
     DO $$
@@ -87,6 +138,10 @@ def init_db():
         ) THEN
             ALTER TABLE quizzes DROP COLUMN IF EXISTS title;
             ALTER TABLE quizzes DROP COLUMN IF EXISTS subject;
+            ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS start_time TIMESTAMP WITH TIME ZONE;
+            ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS end_time TIMESTAMP WITH TIME ZONE;
+            ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS duration_minutes INTEGER;
+            ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS module_id UUID REFERENCES learning_modules(id) ON DELETE SET NULL;
         END IF;
     END $$;
 
@@ -96,6 +151,10 @@ def init_db():
         teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         topic VARCHAR(255) NOT NULL,
         status VARCHAR(50) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+        start_time TIMESTAMP WITH TIME ZONE,
+        end_time TIMESTAMP WITH TIME ZONE,
+        duration_minutes INTEGER,
+        module_id UUID REFERENCES learning_modules(id) ON DELETE SET NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
@@ -111,12 +170,23 @@ def init_db():
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- Migration guard: add started_at column to student_attempts if table already exists
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables WHERE table_name = 'student_attempts'
+        ) THEN
+            ALTER TABLE student_attempts ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE;
+        END IF;
+    END $$;
+
     CREATE TABLE IF NOT EXISTS student_attempts (
         id UUID PRIMARY KEY,
         quiz_id UUID NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
         student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        score FLOAT NOT NULL,
-        answers_snapshot JSONB NOT NULL,
+        score FLOAT,
+        answers_snapshot JSONB,
+        started_at TIMESTAMP WITH TIME ZONE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );

@@ -47,6 +47,9 @@ postgres_db_url = urllib.parse.urlunparse(parsed._replace(path="/postgres"))
 os.environ["DATABASE_URL"] = test_db_url
 
 
+# Disable rate limiting in test environment
+os.environ["LIMITER_ENABLED"] = "false"
+
 # Now we can import app and database modules safely
 from main import app
 from core.database import init_db, get_db_connection
@@ -80,7 +83,12 @@ def clean_database():
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                TRUNCATE TABLE users, classrooms, classroom_student, quizzes, questions, student_attempts CASCADE;
+                TRUNCATE TABLE
+                    users, classrooms, classroom_student,
+                    quizzes, questions, student_attempts,
+                    learning_modules, module_sections, module_exercises,
+                    student_module_progress
+                CASCADE;
             """)
         conn.commit()
 

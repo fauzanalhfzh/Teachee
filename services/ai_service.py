@@ -285,6 +285,138 @@ class AIService:
         return questions[0]
 
     @staticmethod
+    def generate_module_sections(topic: str, num_sections: int) -> List[Dict[str, Any]]:
+        client = _get_ai_client()
+        sections = client.generate_content(topic, num_sections)
+        if sections and len(sections) > 0:
+            logger.info(f"Generated {len(sections)} sections via vLLM for topic: {topic}")
+            return sections
+        logger.warning(f"vLLM unavailable, using fallback sections for topic: {topic}")
+        return AIService._fallback_sections(topic, num_sections)
+
+    @staticmethod
+    def generate_module_exercises(topic: str, num_exercises: int) -> List[Dict[str, Any]]:
+        client = _get_ai_client()
+        exercises = client.generate_exercises(topic, num_exercises)
+        if exercises and len(exercises) > 0:
+            logger.info(f"Generated {len(exercises)} exercises via vLLM for topic: {topic}")
+            return exercises
+        logger.warning(f"vLLM unavailable, using fallback exercises for topic: {topic}")
+        return AIService._fallback_exercises(topic, num_exercises)
+
+    @staticmethod
+    def _fallback_sections(topic: str, num_sections: int) -> List[Dict[str, Any]]:
+        sections = [
+            {
+                "title": f"Pengertian {topic}",
+                "content": f"{topic} adalah konsep fundamental yang perlu dipahami dalam pembelajaran. "
+                           f"Konsep ini mencakup berbagai aspek penting yang saling terkait. "
+                           f"Dalam mempelajari {topic}, kita perlu memahami definisi dasar, "
+                           f"sejarah perkembangannya, serta aplikasinya dalam kehidupan sehari-hari.",
+                "image_prompt": f"Ilustrasi tentang {topic}"
+            },
+            {
+                "title": f"Konsep Dasar {topic}",
+                "content": f"Konsep dasar {topic} meliputi beberapa prinsip utama. "
+                           f"Pertama, kita perlu memahami fondasi teoritisnya. "
+                           f"Kedua, kita harus menguasai terminologi yang digunakan. "
+                           f"Ketiga, penting untuk mengetahui hubungan antara {topic} dengan bidang ilmu lainnya.",
+                "image_prompt": f"Diagram konsep dasar {topic}"
+            },
+            {
+                "title": f"Penerapan {topic}",
+                "content": f"{topic} memiliki banyak penerapan praktis dalam kehidupan sehari-hari. "
+                           f"Dari industri hingga pendidikan, konsep {topic} digunakan "
+                           f"untuk memecahkan berbagai masalah kompleks. "
+                           f"Beberapa contoh penerapan {topic} antara lain dalam bidang "
+                           f"teknologi, kesehatan, dan lingkungan.",
+                "image_prompt": f"Contoh penerapan {topic} dalam kehidupan"
+            },
+            {
+                "title": f"Studi Kasus {topic}",
+                "content": f"Untuk memahami {topic} lebih dalam, mari kita lihat beberapa studi kasus. "
+                           f"Studi kasus ini akan membantu mengilustrasikan bagaimana "
+                           f"konsep-konsep {topic} diterapkan dalam situasi nyata. "
+                           f"Setiap studi kasus dilengkapi dengan analisis dan pembahasan mendalam.",
+                "image_prompt": f"Studi kasus tentang {topic}"
+            },
+        ]
+        result = []
+        for i in range(num_sections):
+            s = sections[i % len(sections)].copy()
+            s["title"] = s["title"].format(topic=topic)
+            s["content"] = s["content"].format(topic=topic)
+            s["image_prompt"] = s["image_prompt"].format(topic=topic)
+            result.append(s)
+        return result
+
+    @staticmethod
+    def _fallback_exercises(topic: str, num_exercises: int) -> List[Dict[str, Any]]:
+        exercise_types = ["multiple_choice", "fill_blank", "true_false", "matching", "ordering"]
+        exercises = []
+        for i in range(num_exercises):
+            etype = exercise_types[i % len(exercise_types)]
+            if etype == "multiple_choice":
+                exercises.append({
+                    "exercise_type": "multiple_choice",
+                    "question_text": f"Manakah pernyataan yang benar tentang {topic}?",
+                    "options": [
+                        f"Pernyataan A tentang {topic} (Benar)",
+                        f"Pernyataan B tentang {topic}",
+                        f"Pernyataan C tentang {topic}",
+                        f"Pernyataan D tentang {topic}"
+                    ],
+                    "correct_answer": f"Pernyataan A tentang {topic} (Benar)",
+                    "explanation": f"Pernyataan A adalah yang paling tepat karena sesuai dengan konsep dasar {topic}.",
+                    "points": 10
+                })
+            elif etype == "fill_blank":
+                exercises.append({
+                    "exercise_type": "fill_blank",
+                    "question_text": f"{topic} adalah ilmu yang mempelajari tentang ______.",
+                    "options": None,
+                    "correct_answer": topic,
+                    "explanation": f"{topic} secara umum didefinisikan sebagai ilmu yang mempelajari tentang {topic.lower()}.",
+                    "points": 15
+                })
+            elif etype == "true_false":
+                exercises.append({
+                    "exercise_type": "true_false",
+                    "question_text": f"{topic} hanya dipelajari oleh para ahli dan tidak relevan dengan kehidupan sehari-hari.",
+                    "options": ["Benar", "Salah"],
+                    "correct_answer": "Salah",
+                    "explanation": f"{topic} sangat relevan dengan kehidupan sehari-hari dan dipelajari oleh berbagai kalangan.",
+                    "points": 5
+                })
+            elif etype == "matching":
+                exercises.append({
+                    "exercise_type": "matching",
+                    "question_text": f"Pasangkan konsep {topic} berikut dengan definisinya yang tepat:",
+                    "options": {
+                        "left": [f"Konsep A {topic}", f"Konsep B {topic}", f"Konsep C {topic}"],
+                        "right": [f"Definisi A", f"Definisi B", f"Definisi C"]
+                    },
+                    "correct_answer": "Konsep A-Definisi A;Konsep B-Definisi B;Konsep C-Definisi C",
+                    "explanation": f"Setiap konsep dalam {topic} memiliki definisi yang spesifik dan perlu dipasangkan dengan tepat.",
+                    "points": 15
+                })
+            elif etype == "ordering":
+                exercises.append({
+                    "exercise_type": "ordering",
+                    "question_text": f"Urutkan langkah-langkah berikut dalam mempelajari {topic} dari yang pertama hingga terakhir:",
+                    "options": [
+                        f"Memahami definisi dasar {topic}",
+                        f"Mempelajari konsep lanjutan {topic}",
+                        f"Mengaplikasikan {topic} dalam soal",
+                        f"Mereview dan mengevaluasi pemahaman {topic}"
+                    ],
+                    "correct_answer": "1;2;3;4",
+                    "explanation": f"Urutan yang benar adalah memahami dasar terlebih dahulu, lalu konsep lanjutan, aplikasi, dan terakhir evaluasi.",
+                    "points": 15
+                })
+        return exercises
+
+    @staticmethod
     def _fallback_generate(topic: str, num_questions: int) -> List[Dict[str, Any]]:
         questions = []
         topic_lower = topic.lower()

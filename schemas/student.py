@@ -16,6 +16,9 @@ class StudentQuizTakeResponse(BaseModel):
     classroom_id: UUID
     teacher_id: UUID
     topic: str
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
     created_at: datetime
     updated_at: datetime
     questions: List[StudentQuestionResponse]
@@ -51,6 +54,9 @@ class ActiveQuizResponse(BaseModel):
     classroom_name: str
     teacher_id: UUID
     topic: str
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
