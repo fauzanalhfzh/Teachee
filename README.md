@@ -71,11 +71,15 @@ Metode ini paling mudah karena Docker akan menginisialisasi database PostgreSQL,
    - **ReDoc Docs**: `http://localhost:8000/redoc`
    - **pgAdmin**: `http://localhost:8080` (Email: `admin@school.com`, Password: `adminpassword`)
 
-4. Siapkan model AI Ollama (cukup sekali):
-   ```bash
-   bash scripts/setup-ollama.sh
-   ```
-   > Script ini menunggu Ollama siap, mengunduh base model, lalu membuat custom model `quizzy:latest` dari `modelfiles/QuizModelfile`.
+4. Siapkan model AI vLLM (cukup sekali, di container vLLM — mis. droplet DigitalOcean 1-Click):
+    ```bash
+    # Pastikan container vLLM (mis. "rocm") sudah terhubung ke network teachee-vllm,
+    # lalu jalankan server OpenAI-compatible di dalamnya:
+    docker network create teachee-vllm
+    docker network connect teachee-vllm rocm
+    docker exec -d rocm vllm serve <model> --host 0.0.0.0 --port 8000
+    ```
+    > `web` terhubung ke vLLM via `http://rocm:8000/v1` (lihat `VLLM_URL` di `docker-compose.yml`).
 
 ### Opsi B: Menjalankan Secara Lokal (Tanpa Docker)
 

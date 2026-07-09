@@ -22,8 +22,8 @@ MOCK_OLLAMA_QUESTIONS = [
 
 class TestGenerateQuestions:
 
-    @patch("services.ai_service.OllamaClient.generate")
-    def test_uses_ollama_when_available(self, mock_generate):
+    @patch("services.ai_service.VllmClient.generate")
+    def test_uses_vllm_when_available(self, mock_generate):
         mock_generate.return_value = MOCK_OLLAMA_QUESTIONS
 
         result = AIService.generate_questions("Sains", 2)
@@ -33,8 +33,8 @@ class TestGenerateQuestions:
         assert result[0]["question_text"] == "Apa ibukota Indonesia?"
         assert result[1]["correct_answer"] == "Edison"
 
-    @patch("services.ai_service.OllamaClient.generate")
-    def test_falls_back_when_ollama_returns_none(self, mock_generate):
+    @patch("services.ai_service.VllmClient.generate")
+    def test_falls_back_when_vllm_returns_none(self, mock_generate):
         mock_generate.return_value = None
 
         result = AIService.generate_questions("Biologi", 3)
@@ -43,8 +43,8 @@ class TestGenerateQuestions:
         assert result is not None
         assert len(result) == 3
 
-    @patch("services.ai_service.OllamaClient.generate")
-    def test_falls_back_when_ollama_returns_empty_list(self, mock_generate):
+    @patch("services.ai_service.VllmClient.generate")
+    def test_falls_back_when_vllm_returns_empty_list(self, mock_generate):
         mock_generate.return_value = []
 
         result = AIService.generate_questions("Biologi", 3)
@@ -53,7 +53,7 @@ class TestGenerateQuestions:
         assert result is not None
         assert len(result) == 3
 
-    @patch("services.ai_service.OllamaClient.generate")
+    @patch("services.ai_service.VllmClient.generate")
     def test_fallbacks_to_default_bank_for_unknown_topic(self, mock_generate):
         mock_generate.return_value = None
 
@@ -65,7 +65,7 @@ class TestGenerateQuestions:
         assert "Biologi" in result[1]["question_text"]
         assert result[1]["correct_answer"] == DEFAULT_BANK[1]["correct_answer"]
 
-    @patch("services.ai_service.OllamaClient.generate")
+    @patch("services.ai_service.VllmClient.generate")
     def test_fallback_math_bank_for_math_topic(self, mock_generate):
         mock_generate.return_value = None
 
@@ -76,7 +76,7 @@ class TestGenerateQuestions:
         assert result[0]["correct_answer"] == MATH_BANK[0]["correct_answer"]
         assert result[1]["question_text"] == MATH_BANK[1]["question_text"]
 
-    @patch("services.ai_service.OllamaClient.generate")
+    @patch("services.ai_service.VllmClient.generate")
     def test_fallback_math_bank_for_matematika_topic(self, mock_generate):
         mock_generate.return_value = None
 
@@ -84,7 +84,7 @@ class TestGenerateQuestions:
 
         assert result[0]["question_text"] == MATH_BANK[0]["question_text"]
 
-    @patch("services.ai_service.OllamaClient.generate")
+    @patch("services.ai_service.VllmClient.generate")
     def test_fallback_history_bank_for_history_topic(self, mock_generate):
         mock_generate.return_value = None
 
@@ -95,7 +95,7 @@ class TestGenerateQuestions:
         assert result[1]["question_text"] == HISTORY_BANK[1]["question_text"]
         assert result[2]["question_text"] == HISTORY_BANK[2]["question_text"]
 
-    @patch("services.ai_service.OllamaClient.generate")
+    @patch("services.ai_service.VllmClient.generate")
     def test_fallback_scales_beyond_bank_size(self, mock_generate):
         mock_generate.return_value = None
 
@@ -108,7 +108,7 @@ class TestGenerateQuestions:
             if i >= len(DEFAULT_BANK):
                 assert "Varian" in q["question_text"]
 
-    @patch("services.ai_service.OllamaClient.generate")
+    @patch("services.ai_service.VllmClient.generate")
     def test_fallback_preserves_topic_in_all_questions(self, mock_generate):
         mock_generate.return_value = None
 
@@ -118,7 +118,7 @@ class TestGenerateQuestions:
             assert "Astronomi" in q["question_text"]
             assert "Astronomi" in q["explanation"]
 
-    @patch("services.ai_service.OllamaClient.generate")
+    @patch("services.ai_service.VllmClient.generate")
     def test_fallback_differentiates_variant_text(self, mock_generate):
         mock_generate.return_value = None
 
@@ -132,8 +132,8 @@ class TestGenerateQuestions:
 
 class TestRegenerateSingleQuestion:
 
-    @patch("services.ai_service.OllamaClient.generate")
-    def test_uses_ollama_when_available(self, mock_generate):
+    @patch("services.ai_service.VllmClient.generate")
+    def test_uses_vllm_when_available(self, mock_generate):
         mock_generate.return_value = MOCK_OLLAMA_QUESTIONS
 
         result = AIService.regenerate_single_question("Sains")
@@ -141,8 +141,8 @@ class TestRegenerateSingleQuestion:
         mock_generate.assert_called_once_with("Sains", 1)
         assert result["question_text"] == "Apa ibukota Indonesia?"
 
-    @patch("services.ai_service.OllamaClient.generate")
-    def test_falls_back_when_ollama_returns_none(self, mock_generate):
+    @patch("services.ai_service.VllmClient.generate")
+    def test_falls_back_when_vllm_returns_none(self, mock_generate):
         mock_generate.return_value = None
 
         result = AIService.regenerate_single_question("Fisika")
@@ -151,7 +151,7 @@ class TestRegenerateSingleQuestion:
         assert "question_text" in result
         assert "Fisika" in result["question_text"]
 
-    @patch("services.ai_service.OllamaClient.generate")
+    @patch("services.ai_service.VllmClient.generate")
     def test_fallback_returns_math_question(self, mock_generate):
         mock_generate.return_value = None
 
@@ -159,7 +159,7 @@ class TestRegenerateSingleQuestion:
 
         assert result["question_text"] == MATH_BANK[0]["question_text"]
 
-    @patch("services.ai_service.OllamaClient.generate")
+    @patch("services.ai_service.VllmClient.generate")
     def test_fallback_returns_history_question(self, mock_generate):
         mock_generate.return_value = None
 
@@ -167,7 +167,7 @@ class TestRegenerateSingleQuestion:
 
         assert result["question_text"] == HISTORY_BANK[0]["question_text"]
 
-    @patch("services.ai_service.OllamaClient.generate")
+    @patch("services.ai_service.VllmClient.generate")
     def test_fallback_returned_question_has_all_keys(self, mock_generate):
         mock_generate.return_value = None
 

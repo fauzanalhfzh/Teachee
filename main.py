@@ -74,21 +74,18 @@ async def health():
     except Exception as e:
         status["database"] = f"unhealthy: {e}"
 
-    ai_provider = os.getenv("AI_PROVIDER", "ollama").lower()
+    ai_provider = os.getenv("AI_PROVIDER", "vllm").lower()
     status["ai_provider"] = ai_provider
 
-    if ai_provider == "gemini":
-        api_key = os.getenv("GEMINI_API_KEY", "")
-        status["gemini_api_key_set"] = bool(api_key)
-    elif ai_provider == "ollama":
+    if ai_provider == "vllm":
         try:
             import httpx
-            OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
+            VLLM_URL = os.getenv("VLLM_URL", "http://localhost:8000/v1")
             with httpx.Client(timeout=2) as client:
-                resp = client.get(f"{OLLAMA_URL}/api/tags")
-                status["ollama"] = "healthy" if resp.status_code == 200 else "unreachable"
+                resp = client.get(f"{VLLM_URL}/models")
+                status["vllm"] = "healthy" if resp.status_code == 200 else "unreachable"
         except Exception:
-            status["ollama"] = "unreachable"
+            status["vllm"] = "unreachable"
 
     overall = "healthy" if status["database"] == "healthy" else "degraded"
     return {"status": overall, "checks": status}

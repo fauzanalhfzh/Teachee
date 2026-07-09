@@ -4,7 +4,7 @@
 - **FastAPI** (no ORM — raw SQL via psycopg2 `ThreadedConnectionPool`)
 - **PostgreSQL** with `RealDictCursor`, UUID PKs, JSONB columns (options, answers_snapshot)
 - **JWT auth** (bcrypt + pyjwt, `HTTPBearer` dependency)
-- **Ollama** for AI quiz gen (falls back to hardcoded question banks if unavailable)
+- **vLLM** for AI quiz gen (OpenAI-compatible; falls back to hardcoded question banks if unavailable)
 
 ## Project layout
 ```
@@ -18,8 +18,8 @@ app/api/v1/
   dependencies.py       # get_current_user (Bearer token → user row)
   endpoints/            # one file per module, raw SQL in handlers
 services/
-  ai_client.py          # Ollama HTTP client (httpx, timeout 120s)
-  ai_service.py         # tries Ollama → falls back to MATH_BANK/HISTORY_BANK/DEFAULT_BANK
+  vllm_client.py        # vLLM OpenAI-compatible HTTP client (httpx)
+  ai_service.py         # calls vLLM → falls back to MATH_BANK/HISTORY_BANK/DEFAULT_BANK
 schemas/                # Pydantic request/response models
 tests/                  # pytest + TestClient, separate test DB
 ```
@@ -39,8 +39,10 @@ pytest                          # uses quiz_test_db, auto-creates it
 pytest -v -x                    # verbose, stop on first fail
 pytest tests/test_auth.py       # single file
 
-# Pull Ollama model (one-time after docker compose up -d)
-bash scripts/setup-ollama.sh
+# Services connect to a vLLM OpenAI-compatible server (e.g. DigitalOcean vLLM 1-Click
+# droplet). The vLLM container must share the `teachee-vllm` docker network with `web`.
+# Start the server inside the vLLM container, e.g.:
+#   docker exec -d rocm vllm serve <model> --host 0.0.0.0 --port 8000
 ```
 
 ## Testing quirks
@@ -77,12 +79,11 @@ Classroom: `Kelas 10A` (teacher_id and classroom_id printed to container logs at
 - Student: `/student/quizzes`, `/student/quizzes/{id}/take`, `/student/quizzes/{id}/submit`
 
 ## AI details
-- Ollama endpoint: `http://ollama:11434` (container) or `OLLAMA_URL` env var
-- Default model: `quizzy:latest` — custom Ollama model (see `modelfiles/QuizModelfile`)
-  - Built from `qwen3.5:latest` with baked-in system prompt & `temperature 0.3`
-  - Build via `bash scripts/setup-ollama.sh` (pull base + `ollama create`)
-- System prompt is embedded in the Modelfile (not in Python code)
-- Falls back to hardcoded banks (`MATH_BANK`, `HISTORY_BANK`, `DEFAULT_BANK` in `services/ai_service.py`)
+- Single AI provider: **vLLM** (OpenAI-compatible). `AI_PROVIDER` is fixed to `vllm`.
+- vLLM endpoint: `http://rocm:8000/v1` (container) or `VLLM_URL` env var; model set via `VLLM_MODEL`.
+- `services/vllm_client.py` POSTs to `{VLLM_URL}/chat/completions` and strips Qwen3 `<think>` reasoning blocks before JSON parsing.
+- Falls back to hardcoded banks (`MATH_BANK`, `HISTORY_BANK`, `DEFAULT_BANK` in `services/ai_service.py`) when vLLM is unreachable / returns no questions.
+- Gemini and Ollama clients were removed; vLLM is the only provider.
 - Report endpoint auto-seeds mock student attempts if none exist (for testing convenience)
 - Manual testing: use `.http` files in repo root (VS Code REST Client)
 

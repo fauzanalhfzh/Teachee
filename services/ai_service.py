@@ -3,21 +3,14 @@ import random
 import logging
 from typing import List, Dict, Any, Optional
 
-from services.ai_client import OllamaClient
-
 logger = logging.getLogger(__name__)
 
-AI_PROVIDER = os.getenv("AI_PROVIDER", "ollama").lower()
+AI_PROVIDER = os.getenv("AI_PROVIDER", "vllm").lower()
 
 
 def _get_ai_client():
-    if AI_PROVIDER == "gemini":
-        from services.gemini_client import GeminiClient
-        return GeminiClient
-    elif AI_PROVIDER == "vllm":
-        from services.vllm_client import VllmClient
-        return VllmClient
-    return OllamaClient
+    from services.vllm_client import VllmClient
+    return VllmClient
 
 MATH_BANK = [
     {

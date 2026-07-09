@@ -31,11 +31,6 @@ services:
       - AI_PROVIDER=vllm
       - VLLM_URL=http://rocm:8000/v1
       - VLLM_MODEL=Qwen3-30B-A3B
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - GEMINI_MODEL=gemini-2.0-flash
-      - OLLAMA_URL=http://ollama:11434
-      - AI_MODEL=quizzy:latest
-      - OLLAMA_TIMEOUT=600
       - JWT_SECRET_KEY=d3aea72647a1f9847954e1e745e3d878c86482d4dab9d01b52a910f92243ddac
 
   pgadmin:
@@ -50,19 +45,8 @@ services:
     depends_on:
       - db
 
-  ollama:
-    image: ollama/ollama
-    container_name: teachee_ollama
-    restart: always
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-      - ./modelfiles:/modelfiles
-
 volumes:
   pgdata:
-  ollama_data:
 
 networks:
   teachee-vllm:
