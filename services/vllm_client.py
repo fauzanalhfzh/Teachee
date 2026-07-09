@@ -13,7 +13,7 @@ VLLM_MODEL = os.getenv("VLLM_MODEL", "Qwen2.5-7B-Instruct")
 VLLM_API_KEY = os.getenv("VLLM_API_KEY", "")
 REQUEST_TIMEOUT = int(os.getenv("VLLM_TIMEOUT", "60"))
 
-SYSTEM_PROMPT = """Anda adalah asisten pembuat soal pilihan ganda. Anda HARUS merespon HANYA dengan JSON array yang valid, tanpa teks lain, tanpa markdown, tanpa pembungkus.
+SYSTEM_PROMPT = """Anda adalah asisten pembuat soal pilihan ganda. Anda HARUS merespon HANYA dengan JSON object yang valid, tanpa teks lain, tanpa markdown, tanpa pembungkus.
 
 Setiap soal memiliki format:
 {
@@ -23,10 +23,34 @@ Setiap soal memiliki format:
   "explanation": "penjelasan mengapa jawaban itu benar"
 }
 
+Bungkus array soal dalam object dengan key "questions": { "questions": [...] }
 Pastikan correct_answer persis sama dengan salah satu string dalam options."""
 
 
 class VllmClient:
+
+    @staticmethod
+    def _clean_json_content(content: str) -> Optional[str]:
+        content = content.strip()
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        content = re.sub(r"```[\w]*\n?", "", content).strip()
+        if not content:
+            return None
+        try:
+            json.loads(content)
+            return content
+        except json.JSONDecodeError:
+            pass
+        start = content.find("[")
+        end = content.rfind("]")
+        if start != -1 and end != -1 and end > start:
+            extracted = content[start:end + 1]
+            try:
+                json.loads(extracted)
+                return extracted
+            except json.JSONDecodeError:
+                pass
+        return content
 
     @staticmethod
     def generate(
@@ -51,6 +75,7 @@ class VllmClient:
             ],
             "temperature": temperature,
             "max_tokens": 4096,
+            "response_format": {"type": "json_object"},
         }
 
         try:
@@ -63,24 +88,21 @@ class VllmClient:
                 resp.raise_for_status()
                 data = resp.json()
 
-            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            if not content:
+            raw_content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            if not raw_content:
                 logger.error("vLLM returned empty content")
                 return None
 
-            content = content.strip()
-            # Strip Qwen3-style <think>...</think> reasoning blocks so JSON parses
-            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-            if content.startswith("```"):
-                lines = content.split("\n")
-                content = "\n".join(
-                    line for line in lines if not line.strip().startswith("```")
-                )
+            content = VllmClient._clean_json_content(raw_content)
+            if not content:
+                logger.error(f"vLLM response contains no JSON array. Raw: {raw_content[:500]}")
+                return None
 
-            questions = json.loads(content)
+            parsed = json.loads(content)
+            questions = parsed.get("questions") if isinstance(parsed, dict) else parsed
 
             if not isinstance(questions, list):
-                logger.error(f"vLLM returned non-list: {type(questions)}")
+                logger.error(f"vLLM returned non-list: {type(questions)}. Raw: {raw_content[:500]}")
                 return None
 
             validated = []
@@ -109,7 +131,8 @@ class VllmClient:
             )
             return None
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse vLLM response as JSON: {e}")
+            raw = raw_content[:500] if raw_content else "(no raw content)"
+            logger.error(f"Failed to parse vLLM response as JSON: {e}. Raw: {raw}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error calling vLLM: {e}")
@@ -134,7 +157,8 @@ class VllmClient:
         )
         content_system = (
             "Anda adalah asisten pembuat materi pembelajaran. "
-            "Anda HARUS merespon HANYA dengan JSON array yang valid, tanpa teks lain, tanpa markdown. "
+            "Anda HARUS merespon HANYA dengan JSON object yang valid, tanpa teks lain, tanpa markdown. "
+            "Bungkus array section dalam object dengan key \"sections\": { \"sections\": [...] }. "
             "Buat materi yang informatif, mudah dipahami, dengan contoh-contoh relevan."
         )
         return VllmClient._call_vllm(user_prompt, content_system, temperature, 4096)
@@ -169,7 +193,8 @@ class VllmClient:
         )
         exercise_system = (
             "Anda adalah asisten pembuat latihan interaktif gaya Duolingo. "
-            "Anda HARUS merespon HANYA dengan JSON array yang valid, tanpa teks lain, tanpa markdown. "
+            "Anda HARUS merespon HANYA dengan JSON object yang valid, tanpa teks lain, tanpa markdown. "
+            "Bungkus array latihan dalam object dengan key \"exercises\": { \"exercises\": [...] }. "
             "Buat latihan yang menantang namun menyenangkan."
         )
         return VllmClient._call_vllm(user_prompt, exercise_system, temperature, 4096)
@@ -193,6 +218,7 @@ class VllmClient:
             ],
             "temperature": temperature,
             "max_tokens": max_tokens,
+            "response_format": {"type": "json_object"},
         }
 
         try:
@@ -205,23 +231,28 @@ class VllmClient:
                 resp.raise_for_status()
                 data = resp.json()
 
-            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            if not content:
+            raw_content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            if not raw_content:
                 logger.error("vLLM returned empty content")
                 return None
 
-            content = content.strip()
-            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-            if content.startswith("```"):
-                lines = content.split("\n")
-                content = "\n".join(
-                    line for line in lines if not line.strip().startswith("```")
-                )
+            content = VllmClient._clean_json_content(raw_content)
+            if not content:
+                logger.error(f"vLLM response contains no JSON. Raw: {raw_content[:500]}")
+                return None
 
-            result = json.loads(content)
+            parsed = json.loads(content)
+            if not isinstance(parsed, dict):
+                logger.error(f"vLLM returned non-object: {type(parsed)}")
+                return None
 
-            if not isinstance(result, list):
-                logger.error(f"vLLM returned non-list: {type(result)}")
+            result = None
+            for key in ("sections", "exercises", "items", "data", "questions"):
+                if key in parsed and isinstance(parsed[key], list):
+                    result = parsed[key]
+                    break
+            if result is None:
+                logger.error(f"vLLM response missing array key. Keys: {list(parsed.keys())}. Raw: {raw_content[:500]}")
                 return None
 
             logger.info(f"vLLM generated {len(result)} items for topic: {user_prompt}")
@@ -237,7 +268,8 @@ class VllmClient:
             logger.error(f"vLLM returned HTTP {e.response.status_code}: {e.response.text}")
             return None
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse vLLM response as JSON: {e}")
+            raw = raw_content[:500] if raw_content else "(no raw content)"
+            logger.error(f"Failed to parse vLLM response as JSON: {e}. Raw: {raw}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error calling vLLM: {e}")
