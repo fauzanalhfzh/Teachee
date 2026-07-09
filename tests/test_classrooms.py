@@ -7,38 +7,36 @@ def test_create_classroom_success(client, teacher_auth_headers):
     teacher_id = teacher_auth_headers["user"]["id"]
     
     payload = {
-        "name": "Kelas 10A Fisika",
-        "teacher_id": teacher_id
+        "name": "Kelas 10A Fisika"
     }
     response = client.post("/api/v1/classrooms", json=payload, headers=headers)
     assert response.status_code == 201
-    
+
     data = response.json()
     assert data["name"] == payload["name"]
     assert data["teacher_id"] == teacher_id
     assert "id" in data
 
-def test_create_classroom_teacher_not_found(client, teacher_auth_headers):
+def test_create_classroom_assigns_current_teacher(client, teacher_auth_headers):
     headers = teacher_auth_headers["headers"]
-    random_uuid = str(uuid.uuid4())
-    
-    payload = {
-        "name": "Kelas Hantu",
-        "teacher_id": random_uuid
-    }
+    teacher_id = teacher_auth_headers["user"]["id"]
+
+    # teacher_id is no longer taken from the request body; it is derived from the
+    # authenticated user. The created classroom must belong to the current teacher.
+    payload = {"name": "Kelas Hantu"}
     response = client.post("/api/v1/classrooms", json=payload, headers=headers)
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Teacher not found"
+    assert response.status_code == 201
+    assert response.json()["teacher_id"] == teacher_id
 
 def test_list_classrooms(client, teacher_auth_headers, create_user):
     headers = teacher_auth_headers["headers"]
     teacher_id = teacher_auth_headers["user"]["id"]
-    
-    # Pre-create classrooms
-    client.post("/api/v1/classrooms", json={"name": "Kelas A", "teacher_id": teacher_id}, headers=headers)
-    client.post("/api/v1/classrooms", json={"name": "Kelas B", "teacher_id": teacher_id}, headers=headers)
-    
-    # Create a classroom for another teacher
+
+    # Pre-create classrooms owned by the current teacher
+    client.post("/api/v1/classrooms", json={"name": "Kelas A"}, headers=headers)
+    client.post("/api/v1/classrooms", json={"name": "Kelas B"}, headers=headers)
+
+    # Create a classroom for another teacher (must NOT appear in the list)
     other_teacher = create_user("Other Teacher", "other_teacher@school.com", "teacher")
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -47,19 +45,13 @@ def test_list_classrooms(client, teacher_auth_headers, create_user):
                 (str(uuid.uuid4()), "Kelas Guru Lain", other_teacher["id"])
             )
         conn.commit()
-        
-    # List all classrooms
+
+    # List classrooms - only the current teacher's own classrooms should be returned
     response = client.get("/api/v1/classrooms", headers=headers)
     assert response.status_code == 200
-    all_classrooms = response.json()
-    assert len(all_classrooms) >= 3
-    
-    # Filter by teacher_id
-    response = client.get(f"/api/v1/classrooms?teacher_id={teacher_id}", headers=headers)
-    assert response.status_code == 200
-    filtered_classrooms = response.json()
-    assert len(filtered_classrooms) == 2
-    for c in filtered_classrooms:
+    classrooms = response.json()
+    assert len(classrooms) == 2
+    for c in classrooms:
         assert c["teacher_id"] == teacher_id
 
 def test_get_classroom_detail(client, teacher_auth_headers, create_user):
@@ -67,7 +59,7 @@ def test_get_classroom_detail(client, teacher_auth_headers, create_user):
     teacher_id = teacher_auth_headers["user"]["id"]
     
     # Create classroom
-    response = client.post("/api/v1/classrooms", json={"name": "Kelas 10 Biologi", "teacher_id": teacher_id}, headers=headers)
+    response = client.post("/api/v1/classrooms", json={"name": "Kelas 10 Biologi"}, headers=headers)
     classroom_id = response.json()["id"]
     
     # Create student and enroll them
@@ -94,7 +86,7 @@ def test_update_classroom(client, teacher_auth_headers):
     teacher_id = teacher_auth_headers["user"]["id"]
     
     # Create classroom
-    response = client.post("/api/v1/classrooms", json={"name": "Kelas Lama", "teacher_id": teacher_id}, headers=headers)
+    response = client.post("/api/v1/classrooms", json={"name": "Kelas Lama"}, headers=headers)
     classroom_id = response.json()["id"]
     
     # Update classroom name
@@ -108,7 +100,7 @@ def test_delete_classroom(client, teacher_auth_headers):
     teacher_id = teacher_auth_headers["user"]["id"]
     
     # Create classroom
-    response = client.post("/api/v1/classrooms", json={"name": "Kelas Untuk Dihapus", "teacher_id": teacher_id}, headers=headers)
+    response = client.post("/api/v1/classrooms", json={"name": "Kelas Untuk Dihapus"}, headers=headers)
     classroom_id = response.json()["id"]
     
     # Delete classroom

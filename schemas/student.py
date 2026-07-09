@@ -15,8 +15,6 @@ class StudentQuizTakeResponse(BaseModel):
     id: UUID
     classroom_id: UUID
     teacher_id: UUID
-    title: str
-    subject: str
     topic: str
     created_at: datetime
     updated_at: datetime
@@ -52,8 +50,6 @@ class ActiveQuizResponse(BaseModel):
     classroom_id: UUID
     classroom_name: str
     teacher_id: UUID
-    title: str
-    subject: str
     topic: str
     created_at: datetime
 
@@ -64,8 +60,6 @@ class CompletedQuizResponse(BaseModel):
     classroom_id: UUID
     classroom_name: str
     teacher_id: UUID
-    title: str
-    subject: str
     topic: str
     score: float
     attempted_at: datetime

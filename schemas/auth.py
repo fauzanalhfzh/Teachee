@@ -12,7 +12,6 @@ class UserRegister(BaseModel):
     name: str
     email: str # Not using EmailStr to avoid needing email-validator package, keeping it simple as in other schemas
     password: str
-    role: UserRole
     avatar: Optional[str] = None
 
 class UserLogin(BaseModel):

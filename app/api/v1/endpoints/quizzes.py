@@ -7,6 +7,7 @@ from uuid import UUID
 
 from core.database import get_db
 from core.limiter import limiter
+from app.api.v1.dependencies import get_current_teacher
 from schemas.quiz import QuizGenerateRequest, QuizResponse, QuizPublishResponse
 from schemas.report import QuizReportResponse, QuizReportStats, StudentReportResult
 from services.ai_service import AIService
@@ -15,34 +16,31 @@ router = APIRouter()
 
 @router.post("/generate", response_model=QuizResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("30/hour")
-def generate_quiz(request: Request, payload: QuizGenerateRequest, conn = Depends(get_db)):
+def generate_quiz(request: Request, payload: QuizGenerateRequest, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # 1. Verify classroom exists
-        cur.execute("SELECT id FROM classrooms WHERE id = %s;", (str(payload.classroom_id),))
+        # 1. Verify classroom exists and belongs to the teacher
+        cur.execute("SELECT id, teacher_id FROM classrooms WHERE id = %s;", (str(payload.classroom_id),))
         classroom = cur.fetchone()
         if not classroom:
             raise HTTPException(status_code=404, detail="Classroom not found")
+        if str(classroom["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=403, detail="You do not have access to this classroom")
 
-        # 2. Verify teacher exists
-        cur.execute("SELECT id FROM users WHERE id = %s AND role = 'teacher';", (str(payload.teacher_id),))
-        teacher = cur.fetchone()
-        if not teacher:
-            raise HTTPException(status_code=404, detail="Teacher not found")
-
-        # 3. Generate questions via AI Service
+        # 2. Generate questions via AI Service
         generated_questions = AIService.generate_questions(payload.topic, payload.num_questions)
         if not generated_questions:
             raise HTTPException(status_code=500, detail="Failed to generate questions")
 
-        # 4. Save Quiz draft
+        # 3. Save Quiz draft
         quiz_id = str(uuid.uuid4())
         cur.execute(
             """
-            INSERT INTO quizzes (id, classroom_id, teacher_id, title, subject, topic, status)
-            VALUES (%s, %s, %s, %s, %s, %s, 'draft')
+            INSERT INTO quizzes (id, classroom_id, teacher_id, topic, status)
+            VALUES (%s, %s, %s, %s, 'draft')
             RETURNING *;
             """,
-            (quiz_id, str(payload.classroom_id), str(payload.teacher_id), payload.topic, payload.topic, payload.topic)
+            (quiz_id, str(payload.classroom_id), teacher_id, payload.topic)
         )
         quiz_row = cur.fetchone()
 
@@ -68,8 +66,16 @@ def generate_quiz(request: Request, payload: QuizGenerateRequest, conn = Depends
         return quiz_dict
 
 @router.post("/{quiz_id}/publish", response_model=QuizPublishResponse)
-def publish_quiz(quiz_id: UUID, conn = Depends(get_db)):
+def publish_quiz(quiz_id: UUID, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT id, teacher_id FROM quizzes WHERE id = %s;", (str(quiz_id),))
+        quiz = cur.fetchone()
+        if not quiz:
+            raise HTTPException(status_code=404, detail="Quiz not found")
+        if str(quiz["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=403, detail="You do not have permission to publish this quiz")
+
         cur.execute(
             """
             UPDATE quizzes
@@ -80,29 +86,36 @@ def publish_quiz(quiz_id: UUID, conn = Depends(get_db)):
             (str(quiz_id),)
         )
         quiz = cur.fetchone()
-        if not quiz:
-            raise HTTPException(status_code=404, detail="Quiz not found")
-        
         conn.commit()
         return quiz
 
 @router.delete("/{quiz_id}", status_code=status.HTTP_200_OK)
-def delete_quiz(quiz_id: UUID, conn = Depends(get_db)):
+def delete_quiz(quiz_id: UUID, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("DELETE FROM quizzes WHERE id = %s RETURNING id;", (str(quiz_id),))
-        if not cur.fetchone():
+        cur.execute("SELECT id, teacher_id FROM quizzes WHERE id = %s;", (str(quiz_id),))
+        quiz = cur.fetchone()
+        if not quiz:
             raise HTTPException(status_code=404, detail="Quiz not found")
+        if str(quiz["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=403, detail="You do not have permission to delete this quiz")
+
+        cur.execute("DELETE FROM quizzes WHERE id = %s RETURNING id;", (str(quiz_id),))
+        cur.fetchone()
         conn.commit()
         return {"message": "Quiz deleted successfully"}
 
 @router.get("/{quiz_id}/reports", response_model=QuizReportResponse)
-def get_quiz_report(quiz_id: UUID, conn = Depends(get_db)):
+def get_quiz_report(quiz_id: UUID, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         # Fetch quiz details
         cur.execute("SELECT * FROM quizzes WHERE id = %s;", (str(quiz_id),))
         quiz = cur.fetchone()
         if not quiz:
             raise HTTPException(status_code=404, detail="Quiz not found")
+        if str(quiz["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=403, detail="You do not have permission to view this report")
 
         # Fetch attempts
         cur.execute(

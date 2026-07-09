@@ -14,6 +14,9 @@ def _get_ai_client():
     if AI_PROVIDER == "gemini":
         from services.gemini_client import GeminiClient
         return GeminiClient
+    elif AI_PROVIDER == "vllm":
+        from services.vllm_client import VllmClient
+        return VllmClient
     return OllamaClient
 
 MATH_BANK = [

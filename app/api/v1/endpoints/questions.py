@@ -4,18 +4,20 @@ from psycopg2.extras import RealDictCursor
 from uuid import UUID
 
 from core.database import get_db
+from app.api.v1.dependencies import get_current_teacher
 from schemas.question import QuestionUpdate, QuestionResponse
 from services.ai_service import AIService
 
 router = APIRouter()
 
 @router.put("/{question_id}/regenerate", response_model=QuestionResponse)
-def regenerate_question(question_id: UUID, conn = Depends(get_db)):
+def regenerate_question(question_id: UUID, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         # 1. Fetch question and join with quiz to fetch the topic
         cur.execute(
             """
-            SELECT q.id, q.quiz_id, qz.topic FROM questions q
+            SELECT q.id, q.quiz_id, qz.topic, qz.teacher_id FROM questions q
             JOIN quizzes qz ON q.quiz_id = qz.id
             WHERE q.id = %s;
             """,
@@ -24,6 +26,8 @@ def regenerate_question(question_id: UUID, conn = Depends(get_db)):
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Question not found")
+        if str(row["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=403, detail="You do not have permission to modify this question")
 
         # 2. Get a new replacement question from the AI Service
         new_q_data = AIService.regenerate_single_question(row["topic"])
@@ -45,11 +49,22 @@ def regenerate_question(question_id: UUID, conn = Depends(get_db)):
 ALLOWED_QUESTION_COLUMNS = {"question_text", "options", "correct_answer", "explanation"}
 
 @router.patch("/{question_id}", response_model=QuestionResponse)
-def update_question(question_id: UUID, payload: QuestionUpdate, conn = Depends(get_db)):
+def update_question(question_id: UUID, payload: QuestionUpdate, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT id FROM questions WHERE id = %s;", (str(question_id),))
-        if not cur.fetchone():
+        cur.execute(
+            """
+            SELECT q.id, qz.teacher_id FROM questions q
+            JOIN quizzes qz ON q.quiz_id = qz.id
+            WHERE q.id = %s;
+            """,
+            (str(question_id),)
+        )
+        row = cur.fetchone()
+        if not row:
             raise HTTPException(status_code=404, detail="Question not found")
+        if str(row["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=403, detail="You do not have permission to modify this question")
 
         update_data = payload.model_dump(exclude_unset=True)
         if not update_data:
@@ -79,12 +94,24 @@ def update_question(question_id: UUID, payload: QuestionUpdate, conn = Depends(g
         return updated_question
 
 @router.delete("/{question_id}", status_code=status.HTTP_200_OK)
-def delete_question(question_id: UUID, conn = Depends(get_db)):
+def delete_question(question_id: UUID, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("DELETE FROM questions WHERE id = %s RETURNING id;", (str(question_id),))
-        deleted_id = cur.fetchone()
-        if not deleted_id:
+        cur.execute(
+            """
+            SELECT q.id, qz.teacher_id FROM questions q
+            JOIN quizzes qz ON q.quiz_id = qz.id
+            WHERE q.id = %s;
+            """,
+            (str(question_id),)
+        )
+        row = cur.fetchone()
+        if not row:
             raise HTTPException(status_code=404, detail="Question not found")
-        
+        if str(row["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=403, detail="You do not have permission to delete this question")
+
+        cur.execute("DELETE FROM questions WHERE id = %s RETURNING id;", (str(question_id),))
+        cur.fetchone()
         conn.commit()
         return {"message": "Question deleted successfully"}

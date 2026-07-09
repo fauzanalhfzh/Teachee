@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
@@ -25,9 +23,14 @@ services:
       - .:/app
     depends_on:
       - db
+    networks:
+      - default
+      - teachee-vllm
     environment:
       - DATABASE_URL=postgresql://postgres:password123@db:5432/quiz_db
-      - AI_PROVIDER=gemini
+      - AI_PROVIDER=vllm
+      - VLLM_URL=http://rocm:8000/v1
+      - VLLM_MODEL=Qwen3-30B-A3B
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GEMINI_MODEL=gemini-2.0-flash
       - OLLAMA_URL=http://ollama:11434
@@ -60,3 +63,7 @@ services:
 volumes:
   pgdata:
   ollama_data:
+
+networks:
+  teachee-vllm:
+    external: true

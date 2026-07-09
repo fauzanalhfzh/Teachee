@@ -18,9 +18,6 @@ def test_generate_quiz_success(client, teacher_auth_headers):
     # 2. Generate a quiz
     payload = {
         "classroom_id": classroom_id,
-        "teacher_id": teacher_id,
-        "title": "Kuis Aljabar Linear",
-        "subject": "Matematika",
         "topic": "Aljabar",
         "num_questions": 3
     }
@@ -28,7 +25,6 @@ def test_generate_quiz_success(client, teacher_auth_headers):
     assert response.status_code == 201
     
     data = response.json()
-    assert data["title"] == payload["title"]
     assert data["status"] == "draft"
     assert len(data["questions"]) == 3
     assert "id" in data
@@ -55,9 +51,6 @@ def test_publish_quiz_success(client, teacher_auth_headers):
         "/api/v1/quizzes/generate",
         json={
             "classroom_id": classroom_id,
-            "teacher_id": teacher_id,
-            "title": "Kuis Gravitasi",
-            "subject": "Fisika",
             "topic": "Gravitasi",
             "num_questions": 2
         },
@@ -103,9 +96,6 @@ def test_quiz_reports_and_autoseed(client, teacher_auth_headers, create_user):
         "/api/v1/quizzes/generate",
         json={
             "classroom_id": classroom_id,
-            "teacher_id": teacher_id,
-            "title": "Kuis Puisi",
-            "subject": "Bahasa Indonesia",
             "topic": "Sastra",
             "num_questions": 2
         },

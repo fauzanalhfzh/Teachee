@@ -31,7 +31,7 @@ def get_student_quizzes(current_user = Depends(get_current_user), conn = Depends
         # Active quizzes: published quizzes in student's classrooms that the student has not attempted yet
         cur.execute(
             """
-            SELECT q.id, q.classroom_id, c.name as classroom_name, q.teacher_id, q.title, q.subject, q.topic, q.created_at
+            SELECT q.id, q.classroom_id, c.name as classroom_name, q.teacher_id, q.topic, q.created_at
             FROM quizzes q
             JOIN classrooms c ON q.classroom_id = c.id
             JOIN classroom_student cs ON c.id = cs.classroom_id
@@ -49,7 +49,7 @@ def get_student_quizzes(current_user = Depends(get_current_user), conn = Depends
         # Completed quizzes: quizzes attempted by this student
         cur.execute(
             """
-            SELECT q.id, q.classroom_id, c.name as classroom_name, q.teacher_id, q.title, q.subject, q.topic, sa.score, sa.created_at as attempted_at
+            SELECT q.id, q.classroom_id, c.name as classroom_name, q.teacher_id, q.topic, sa.score, sa.created_at as attempted_at
             FROM quizzes q
             JOIN classrooms c ON q.classroom_id = c.id
             JOIN student_attempts sa ON q.id = sa.quiz_id

@@ -5,29 +5,27 @@ def test_register_user_success(client):
         "name": "Guru Budi",
         "email": "teacher_budi@school.com",
         "password": "secretpassword",
-        "role": "teacher",
         "avatar": "https://avatar.iran.liara.run/public/teacher"
     }
     response = client.post("/api/v1/auth/register", json=payload)
     assert response.status_code == 201
-    
+
     data = response.json()
     assert data["name"] == payload["name"]
     assert data["email"] == payload["email"]
-    assert data["role"] == payload["role"]
+    assert data["role"] == "student"
     assert "id" in data
     assert "password" not in data # Ensure password is not returned in response
 
 def test_register_user_duplicate_email(client, create_user):
     # Pre-create a user
     create_user("Guru Budi", "teacher_budi@school.com", "teacher")
-    
+
     # Try to register with the same email
     payload = {
         "name": "Budi Kloning",
         "email": "teacher_budi@school.com",
-        "password": "anotherpassword",
-        "role": "teacher"
+        "password": "anotherpassword"
     }
     response = client.post("/api/v1/auth/register", json=payload)
     assert response.status_code == 400

@@ -34,3 +34,11 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return user
+
+def get_current_teacher(current_user = Depends(get_current_user)):
+    if current_user["role"] != "teacher":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only teachers can perform this action",
+        )
+    return current_user

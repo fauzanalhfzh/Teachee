@@ -5,18 +5,15 @@ from uuid import UUID
 from typing import List, Optional
 
 from core.database import get_db
+from app.api.v1.dependencies import get_current_teacher
 from schemas.classroom import ClassroomCreate, ClassroomUpdate, ClassroomResponse, ClassroomDetailResponse, StudentInClassroom, EnrollStudentRequest
 
 router = APIRouter()
 
 @router.post("", response_model=ClassroomResponse, status_code=status.HTTP_201_CREATED)
-def create_classroom(payload: ClassroomCreate, conn = Depends(get_db)):
+def create_classroom(payload: ClassroomCreate, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # Verify teacher exists
-        cur.execute("SELECT id FROM users WHERE id = %s AND role = 'teacher';", (str(payload.teacher_id),))
-        if not cur.fetchone():
-            raise HTTPException(status_code=404, detail="Teacher not found")
-
         classroom_id = str(uuid.uuid4())
         cur.execute(
             """
@@ -24,7 +21,7 @@ def create_classroom(payload: ClassroomCreate, conn = Depends(get_db)):
             VALUES (%s, %s, %s)
             RETURNING *;
             """,
-            (classroom_id, payload.name, str(payload.teacher_id))
+            (classroom_id, payload.name, teacher_id)
         )
         classroom = cur.fetchone()
         conn.commit()
@@ -32,26 +29,22 @@ def create_classroom(payload: ClassroomCreate, conn = Depends(get_db)):
 
 @router.get("", response_model=List[ClassroomResponse])
 def list_classrooms(
-    teacher_id: Optional[UUID] = None,
     limit: int = 50,
     offset: int = 0,
+    current_user = Depends(get_current_teacher),
     conn = Depends(get_db),
 ):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        if teacher_id:
-            cur.execute(
-                "SELECT * FROM classrooms WHERE teacher_id = %s ORDER BY created_at DESC LIMIT %s OFFSET %s;",
-                (str(teacher_id), limit, offset)
-            )
-        else:
-            cur.execute(
-                "SELECT * FROM classrooms ORDER BY created_at DESC LIMIT %s OFFSET %s;",
-                (limit, offset)
-            )
+        cur.execute(
+            "SELECT * FROM classrooms WHERE teacher_id = %s ORDER BY created_at DESC LIMIT %s OFFSET %s;",
+            (teacher_id, limit, offset)
+        )
         return cur.fetchall()
 
 @router.get("/{classroom_id}", response_model=ClassroomDetailResponse)
-def get_classroom(classroom_id: UUID, conn = Depends(get_db)):
+def get_classroom(classroom_id: UUID, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         # 1. Fetch classroom details and teacher name
         cur.execute(
@@ -64,6 +57,8 @@ def get_classroom(classroom_id: UUID, conn = Depends(get_db)):
         )
         classroom_row = cur.fetchone()
         if not classroom_row:
+            raise HTTPException(status_code=404, detail="Classroom not found")
+        if str(classroom_row["teacher_id"]) != teacher_id:
             raise HTTPException(status_code=404, detail="Classroom not found")
 
         # 2. Fetch enrolled students
@@ -82,19 +77,18 @@ def get_classroom(classroom_id: UUID, conn = Depends(get_db)):
         res_dict["students"] = [dict(s) for s in students_rows]
         return res_dict
 
-ALLOWED_CLASSROOM_COLUMNS = {"name", "teacher_id"}
+ALLOWED_CLASSROOM_COLUMNS = {"name"}
 
 @router.patch("/{classroom_id}", response_model=ClassroomResponse)
-def update_classroom(classroom_id: UUID, payload: ClassroomUpdate, conn = Depends(get_db)):
+def update_classroom(classroom_id: UUID, payload: ClassroomUpdate, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT id FROM classrooms WHERE id = %s;", (str(classroom_id),))
-        if not cur.fetchone():
+        cur.execute("SELECT id, teacher_id FROM classrooms WHERE id = %s;", (str(classroom_id),))
+        row = cur.fetchone()
+        if not row:
             raise HTTPException(status_code=404, detail="Classroom not found")
-
-        if payload.teacher_id:
-            cur.execute("SELECT id FROM users WHERE id = %s AND role = 'teacher';", (str(payload.teacher_id),))
-            if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Teacher not found")
+        if str(row["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=404, detail="Classroom not found")
 
         update_data = payload.model_dump(exclude_unset=True)
         if not update_data:
@@ -124,10 +118,14 @@ def update_classroom(classroom_id: UUID, payload: ClassroomUpdate, conn = Depend
         return updated_classroom
 
 @router.post("/{classroom_id}/students", status_code=status.HTTP_201_CREATED)
-def enroll_student(classroom_id: UUID, payload: EnrollStudentRequest, conn = Depends(get_db)):
+def enroll_student(classroom_id: UUID, payload: EnrollStudentRequest, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT id FROM classrooms WHERE id = %s;", (str(classroom_id),))
-        if not cur.fetchone():
+        cur.execute("SELECT id, teacher_id FROM classrooms WHERE id = %s;", (str(classroom_id),))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Classroom not found")
+        if str(row["teacher_id"]) != teacher_id:
             raise HTTPException(status_code=404, detail="Classroom not found")
 
         cur.execute("SELECT id FROM users WHERE id = %s AND role = 'student';", (str(payload.student_id),))
@@ -152,8 +150,16 @@ def enroll_student(classroom_id: UUID, payload: EnrollStudentRequest, conn = Dep
         return {"message": "Student enrolled successfully"}
 
 @router.delete("/{classroom_id}/students/{student_id}", status_code=status.HTTP_200_OK)
-def unenroll_student(classroom_id: UUID, student_id: UUID, conn = Depends(get_db)):
+def unenroll_student(classroom_id: UUID, student_id: UUID, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT id, teacher_id FROM classrooms WHERE id = %s;", (str(classroom_id),))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Classroom not found")
+        if str(row["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=404, detail="Classroom not found")
+
         cur.execute(
             "DELETE FROM classroom_student WHERE classroom_id = %s AND student_id = %s RETURNING 1;",
             (str(classroom_id), str(student_id))
@@ -164,11 +170,17 @@ def unenroll_student(classroom_id: UUID, student_id: UUID, conn = Depends(get_db
         return {"message": "Student unenrolled successfully"}
 
 @router.delete("/{classroom_id}", status_code=status.HTTP_200_OK)
-def delete_classroom(classroom_id: UUID, conn = Depends(get_db)):
+def delete_classroom(classroom_id: UUID, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("DELETE FROM classrooms WHERE id = %s RETURNING id;", (str(classroom_id),))
-        deleted_id = cur.fetchone()
-        if not deleted_id:
+        cur.execute("SELECT id, teacher_id FROM classrooms WHERE id = %s;", (str(classroom_id),))
+        row = cur.fetchone()
+        if not row:
             raise HTTPException(status_code=404, detail="Classroom not found")
+        if str(row["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=404, detail="Classroom not found")
+
+        cur.execute("DELETE FROM classrooms WHERE id = %s RETURNING id;", (str(classroom_id),))
+        cur.fetchone()
         conn.commit()
         return {"message": "Classroom deleted successfully"}

@@ -18,9 +18,6 @@ def test_regenerate_question_success(client, teacher_auth_headers):
         "/api/v1/quizzes/generate",
         json={
             "classroom_id": classroom_id,
-            "teacher_id": teacher_id,
-            "title": "Kuis Larutan Asam Basa",
-            "subject": "Kimia",
             "topic": "Asam Basa",
             "num_questions": 2
         },
@@ -58,9 +55,6 @@ def test_edit_question_success(client, teacher_auth_headers):
         "/api/v1/quizzes/generate",
         json={
             "classroom_id": classroom_id,
-            "teacher_id": teacher_id,
-            "title": "Kuis Larutan Asam Basa",
-            "subject": "Kimia",
             "topic": "Asam Basa",
             "num_questions": 1
         },
@@ -101,9 +95,6 @@ def test_delete_question_success(client, teacher_auth_headers):
         "/api/v1/quizzes/generate",
         json={
             "classroom_id": classroom_id,
-            "teacher_id": teacher_id,
-            "title": "Kuis Larutan Asam Basa",
-            "subject": "Kimia",
             "topic": "Asam Basa",
             "num_questions": 1
         },

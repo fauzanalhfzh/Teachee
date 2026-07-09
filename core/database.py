@@ -17,7 +17,7 @@ pool = None
 
 def get_connection_pool():
     global pool
-    if pool is not None:
+    if pool is not None and not pool.closed:
         return pool
     
     # Retry connection up to 10 times (waiting 2 seconds between attempts)
@@ -78,12 +78,22 @@ def init_db():
         PRIMARY KEY (classroom_id, student_id)
     );
 
+    -- Migration guard: drop legacy columns from pre-existing quizzes tables.
+    -- Skipped entirely when the table does not yet exist (fresh database).
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables WHERE table_name = 'quizzes'
+        ) THEN
+            ALTER TABLE quizzes DROP COLUMN IF EXISTS title;
+            ALTER TABLE quizzes DROP COLUMN IF EXISTS subject;
+        END IF;
+    END $$;
+
     CREATE TABLE IF NOT EXISTS quizzes (
         id UUID PRIMARY KEY,
         classroom_id UUID NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
         teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        title VARCHAR(255) NOT NULL,
-        subject VARCHAR(255) NOT NULL,
         topic VARCHAR(255) NOT NULL,
         status VARCHAR(50) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

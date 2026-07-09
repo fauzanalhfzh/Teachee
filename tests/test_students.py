@@ -39,9 +39,6 @@ def test_student_quiz_workflow(client, teacher_auth_headers, student_auth_header
         "/api/v1/quizzes/generate",
         json={
             "classroom_id": classroom_id,
-            "teacher_id": teacher_id,
-            "title": "Kuis Larutan",
-            "subject": "Kimia",
             "topic": "Asam Basa",
             "num_questions": 2
         },
