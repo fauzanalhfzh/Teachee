@@ -16,9 +16,19 @@ def seed_database(conn):
         existing_teacher = cur.fetchone()
         
         if existing_teacher:
-            # Query existing classroom
             cur.execute("SELECT id, name FROM classrooms LIMIT 1;")
             classroom = cur.fetchone()
+            if classroom:
+                cur.execute("""
+                    INSERT INTO classroom_student (classroom_id, student_id)
+                    SELECT %s, id FROM users
+                    WHERE role = 'student'
+                      AND id NOT IN (SELECT student_id FROM classroom_student WHERE classroom_id = %s)
+                      AND email IN ('adit@school.com', 'bambang@school.com');
+                """, (classroom['id'], classroom['id']))
+                if cur.rowcount > 0:
+                    conn.commit()
+                    logger.info(f"Enrolled {cur.rowcount} student(s) into {classroom['name']}")
             logger.info("===== DATABASE ALREADY HAS SEED DATA =====")
             logger.info(f"Teacher ID: {existing_teacher['id']}")
             if classroom:
