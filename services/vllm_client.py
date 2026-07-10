@@ -66,11 +66,12 @@ class VllmClient:
         temperature: float = 0.3,
     ) -> Optional[List[Dict[str, Any]]]:
         user_prompt = (
-            f"Buatkan {num_questions} soal pilihan ganda tentang \"{prompt}\".\n"
+            f"Topik: {prompt}\n\n"
+            f"Buatkan {num_questions} soal pilihan ganda tentang topik di atas.\n"
             f"Output JSON array dengan tepat {num_questions} soal.\n\n"
             f"PENTING:\n"
-            f"- Soal harus spesifik dan relevan dengan \"{prompt}\"\n"
-            f"- JANGAN gunakan pola generik seperti 'Pernyataan A tentang {prompt}'\n"
+            f"- Soal harus spesifik, jangan mengulang judul topik di dalam teks soal\n"
+            f"- JANGAN gunakan pola generik seperti 'Pernyataan A', 'Faktor X', 'Konsep A'\n"
             f"- Setiap soal harus memiliki jawaban konkret (angka, nama tokoh, istilah spesifik)\n"
             f"- Variasikan tingkat kesulitan (mudah, sedang, sulit)"
         )
@@ -157,15 +158,16 @@ class VllmClient:
         temperature: float = 0.4,
     ) -> Optional[List[Dict[str, Any]]]:
         user_prompt = (
-            f"Buatkan materi pembelajaran tentang: \"{prompt}\" dalam {num_sections} bagian.\n"
+            f"Topik: {prompt}\n\n"
+            f"Buatkan materi pembelajaran tentang topik di atas dalam {num_sections} bagian.\n"
             f"Output JSON array dengan tepat {num_sections} section. "
             f"Setiap section memiliki format:\n"
             f"{{\n"
             f"  \"title\": \"judul section yang spesifik\",\n"
-            f"  \"content\": \"teks materi yang panjang dan informatif (min 3 paragraf) — berisi penjelasan konkret, bukan template generik\",\n"
+            f"  \"content\": \"teks materi yang panjang dan informatif (min 3 paragraf) — berisi fakta konkret, bukan template generik\",\n"
             f"  \"image_prompt\": \"deskripsi prompt untuk ilustrasi gambar section ini\"\n"
             f"}}\n"
-            f"PENTING: Konten harus spesifik tentang {prompt}. Jangan gunakan placeholder atau template generik. "
+            f"PENTING: Konten harus spesifik tentang topik. Jangan mengulang judul topik di dalam konten. "
             f"Gunakan bahasa Indonesia yang baik dan benar."
         )
         content_system = (
@@ -183,13 +185,15 @@ class VllmClient:
         temperature: float = 0.3,
     ) -> Optional[List[Dict[str, Any]]]:
         user_prompt = (
-            f"Buatkan {num_exercises} latihan interaktif berkualitas tinggi tentang topik: \"{prompt}\".\n\n"
+            f"Topik: {prompt}\n\n"
+            f"Buatkan {num_exercises} latihan interaktif berkualitas tinggi tentang topik di atas.\n\n"
             f"PENTING: Setiap soal harus spesifik dan relevan dengan topik. "
             f"JANGAN gunakan placeholder generik seperti 'Pernyataan A', 'Faktor X', 'Konsep A'. "
+            f"JANGAN mengulang judul topik di dalam teks soal. "
             f"Buat pertanyaan yang menguji pemahaman nyata siswa.\n\n"
             f"CONTOH BURUK (JANGAN DITIRU):\n"
-            f"- question_text: 'Manakah pernyataan yang benar tentang {prompt}?'\n"
-            f'- options: ["Pernyataan A tentang {prompt} (Benar)", "Pernyataan B tentang {prompt}", ...]\n\n'
+            f"- question_text: 'Manakah pernyataan yang benar tentang topik ini?'\n"
+            f'- options: ["Pernyataan A (Benar)", "Pernyataan B", "Pernyataan C", "Pernyataan D"]\n\n'
             f"CONTOH BAIK:\n"
             f"- question_text: 'Apa output dari perintah print(type(3.14)) di Python?'\n"
             f"- options: [\"<class 'float'>\", \"<class 'int'>\", \"<class 'str'>\", \"<class 'decimal'>\"]\n\n"

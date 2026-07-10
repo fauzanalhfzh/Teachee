@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 import asyncio
 import logging
@@ -46,6 +47,10 @@ def generate_module(
             raise HTTPException(status_code=403, detail="You do not have access to this classroom")
 
         topic = payload.topic.strip()
+        topic = re.sub(
+            r'^(?:buatkan|bikin|tolong|mohon|buat|cari)\s+(?:materi|soal|latihan|modul|ringkasan)?\s*(?:tentang|mengenai|untuk)?\s+',
+            '', topic, flags=re.IGNORECASE
+        ).strip()
 
         if not force:
             cur.execute(

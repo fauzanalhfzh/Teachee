@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 import random
 import logging
@@ -98,7 +99,12 @@ def generate_quiz(request: Request, payload: QuizGenerateRequest, current_user =
         if payload.start_time and payload.end_time and payload.start_time >= payload.end_time:
             raise HTTPException(status_code=400, detail="start_time must be before end_time")
 
-        generated_questions = AIService.generate_questions(payload.topic, payload.num_questions)
+        topic = re.sub(
+            r'^(?:buatkan|bikin|tolong|mohon|buat|cari)\s+(?:materi|soal|latihan|modul|ringkasan)?\s*(?:tentang|mengenai|untuk)?\s+',
+            '', payload.topic.strip(), flags=re.IGNORECASE
+        ).strip() or payload.topic.strip()
+
+        generated_questions = AIService.generate_questions(topic, payload.num_questions)
         if not generated_questions:
             raise HTTPException(status_code=500, detail="Failed to generate questions")
 
@@ -113,7 +119,7 @@ def generate_quiz(request: Request, payload: QuizGenerateRequest, current_user =
                 quiz_id,
                 str(payload.classroom_id),
                 teacher_id,
-                payload.topic,
+                topic,
                 payload.start_time,
                 payload.end_time,
                 payload.duration_minutes,
