@@ -9,7 +9,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 VLLM_URL = os.getenv("VLLM_URL", "http://localhost:8000/v1")
-VLLM_MODEL = os.getenv("VLLM_MODEL", "Qwen2.5-7B-Instruct")
+VLLM_MODEL = os.getenv("VLLM_MODEL", "Qwen/Qwen3-30B-A3B")
 VLLM_API_KEY = os.getenv("VLLM_API_KEY", "")
 REQUEST_TIMEOUT = int(os.getenv("VLLM_TIMEOUT", "60"))
 

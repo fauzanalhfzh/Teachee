@@ -55,7 +55,7 @@ services:
       - DATABASE_URL=postgresql://postgres:password123@db:5432/teachee_db
       - AI_PROVIDER=vllm
       - VLLM_URL=http://rocm:8000/v1
-      - VLLM_MODEL=Qwen3-30B-A3B
+      - VLLM_MODEL=Qwen/Qwen3-30B-A3B
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - FLUX_URL=http://flux:8000
 
