@@ -31,7 +31,7 @@ Format setiap soal:
   "explanation": "penjelasan singkat mengapa jawaban itu benar"
 }
 
-Bungkus array soal dalam object dengan key "questions": { "questions": [...] }"""
+Bungkus array soal dalam object: { "questions": [...] }"""
 
 
 class VllmClient:
@@ -82,7 +82,7 @@ class VllmClient:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": temperature,
-            "max_tokens": 4096,
+            "max_tokens": 8192,
             "response_format": {"type": "json_object"},
         }
 
@@ -108,6 +108,9 @@ class VllmClient:
 
             parsed = json.loads(content)
             questions = parsed.get("questions") if isinstance(parsed, dict) else parsed
+
+            if questions is None:
+                questions = parsed
 
             if not isinstance(questions, list):
                 logger.error(f"vLLM returned non-list: {type(questions)}. Raw: {raw_content[:500]}")
@@ -166,7 +169,7 @@ class VllmClient:
         content_system = (
             "Anda adalah asisten pembuat materi pembelajaran berkualitas tinggi untuk siswa SMA/SMK. "
             "Anda HARUS merespon HANYA dengan JSON object yang valid, tanpa teks lain, tanpa markdown. "
-            "Bungkus array section dalam object dengan key \"sections\": { \"sections\": [...] }. "
+            "Bungkus array section dalam object: { \"sections\": [...] }. "
             "ATURAN PENTING:\n"
             "- Konten harus SPESIFIK dan faktual tentang topik yang diberikan\n"
             "- JANGAN mengulang judul topik di dalam teks konten\n"
@@ -191,7 +194,7 @@ class VllmClient:
         exercise_system = (
             "Anda adalah asisten pembuat latihan interaktif berkualitas tinggi untuk siswa SMA/SMK. "
             "Anda HARUS merespon HANYA dengan JSON object yang valid, tanpa teks lain, tanpa markdown. "
-            "Bungkus array latihan dalam object dengan key \"exercises\": { \"exercises\": [...] }.\n\n"
+            "Bungkus array latihan dalam object: { \"exercises\": [...] }.\n\n"
             "ATURAN PENTING:\n"
             "- Setiap soal harus SPESIFIK dan relevan dengan topik\n"
             "- JANGAN mengulang judul topik di dalam teks soal\n"
@@ -229,7 +232,7 @@ class VllmClient:
         user_prompt: str,
         system_prompt: str,
         temperature: float = 0.7,
-        max_tokens: int = 4096,
+        max_tokens: int = 8192,
     ) -> Optional[List[Dict[str, Any]]]:
         headers = {"Content-Type": "application/json"}
         if VLLM_API_KEY:
@@ -277,8 +280,13 @@ class VllmClient:
                     result = parsed[key]
                     break
             if result is None:
-                logger.error(f"vLLM response missing array key. Keys: {list(parsed.keys())}. Raw: {raw_content[:500]}")
-                return None
+                SINGLE_ITEM_KEYS = {"exercise_type", "question_text", "title"}
+                if SINGLE_ITEM_KEYS.intersection(parsed.keys()):
+                    result = [parsed]
+                    logger.info(f"vLLM returned single item, wrapped in list")
+                else:
+                    logger.error(f"vLLM response missing array key. Keys: {list(parsed.keys())}. Raw: {raw_content[:500]}")
+                    return None
 
             logger.info(f"vLLM generated {len(result)} items for topic: {user_prompt}")
             return result
