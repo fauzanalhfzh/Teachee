@@ -40,6 +40,10 @@ class StudentExerciseResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class ModuleUpdate(BaseModel):
+    title: Optional[str] = None
+    topic: Optional[str] = None
+
 class ModuleGenerateRequest(BaseModel):
     classroom_id: UUID
     topic: str

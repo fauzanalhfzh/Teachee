@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from core.database import get_db
 from app.api.v1.dependencies import get_current_teacher
-from schemas.classroom import ClassroomCreate, ClassroomUpdate, ClassroomResponse, ClassroomDetailResponse, StudentInClassroom, EnrollStudentRequest
+from schemas.classroom import ClassroomCreate, ClassroomUpdate, ClassroomResponse, ClassroomDetailResponse, StudentInClassroom, EnrollStudentRequest, BulkEnrollRequest, TeacherStudentListItem
 
 router = APIRouter()
 
@@ -40,6 +40,44 @@ def list_classrooms(
             "SELECT * FROM classrooms WHERE teacher_id = %s ORDER BY created_at DESC LIMIT %s OFFSET %s;",
             (teacher_id, limit, offset)
         )
+        return cur.fetchall()
+
+@router.get("/students", response_model=List[TeacherStudentListItem])
+def list_students(
+    classroom_id: Optional[UUID] = None,
+    limit: int = 100,
+    offset: int = 0,
+    current_user = Depends(get_current_teacher),
+    conn = Depends(get_db),
+):
+    teacher_id = str(current_user["id"])
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        if classroom_id:
+            cur.execute(
+                """
+                SELECT u.id, u.name, u.email, c.id as classroom_id, c.name as classroom_name, cs.created_at as enrolled_at
+                FROM users u
+                JOIN classroom_student cs ON u.id = cs.student_id
+                JOIN classrooms c ON cs.classroom_id = c.id
+                WHERE c.teacher_id = %s AND c.id = %s
+                ORDER BY u.name ASC
+                LIMIT %s OFFSET %s;
+                """,
+                (teacher_id, str(classroom_id), limit, offset)
+            )
+        else:
+            cur.execute(
+                """
+                SELECT u.id, u.name, u.email, c.id as classroom_id, c.name as classroom_name, cs.created_at as enrolled_at
+                FROM users u
+                JOIN classroom_student cs ON u.id = cs.student_id
+                JOIN classrooms c ON cs.classroom_id = c.id
+                WHERE c.teacher_id = %s
+                ORDER BY u.name ASC
+                LIMIT %s OFFSET %s;
+                """,
+                (teacher_id, limit, offset)
+            )
         return cur.fetchall()
 
 @router.get("/{classroom_id}", response_model=ClassroomDetailResponse)
@@ -116,6 +154,36 @@ def update_classroom(classroom_id: UUID, payload: ClassroomUpdate, current_user 
         updated_classroom = cur.fetchone()
         conn.commit()
         return updated_classroom
+
+@router.post("/{classroom_id}/students/bulk", status_code=status.HTTP_201_CREATED)
+def bulk_enroll_students(classroom_id: UUID, payload: BulkEnrollRequest, current_user = Depends(get_current_teacher), conn = Depends(get_db)):
+    teacher_id = str(current_user["id"])
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT id, teacher_id FROM classrooms WHERE id = %s;", (str(classroom_id),))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Classroom not found")
+        if str(row["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=404, detail="Classroom not found")
+
+        enrolled = 0
+        skipped = 0
+        not_found = []
+        for sid in payload.student_ids:
+            cur.execute("SELECT id FROM users WHERE id = %s AND role = 'student';", (str(sid),))
+            if not cur.fetchone():
+                not_found.append(str(sid))
+                continue
+            cur.execute(
+                "INSERT INTO classroom_student (classroom_id, student_id) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
+                (str(classroom_id), str(sid))
+            )
+            if cur.rowcount > 0:
+                enrolled += 1
+            else:
+                skipped += 1
+        conn.commit()
+        return {"enrolled": enrolled, "skipped": skipped, "not_found": not_found}
 
 @router.post("/{classroom_id}/students", status_code=status.HTTP_201_CREATED)
 def enroll_student(classroom_id: UUID, payload: EnrollStudentRequest, current_user = Depends(get_current_teacher), conn = Depends(get_db)):

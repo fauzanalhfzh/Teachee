@@ -6,7 +6,7 @@ from core.database import get_db
 from core.limiter import limiter
 from core.security import hash_password, verify_password, create_access_token
 from app.api.v1.dependencies import get_current_user
-from schemas.auth import UserRegister, UserLogin, Token, UserMeResponse
+from schemas.auth import UserRegister, UserLogin, ChangePasswordRequest, Token, UserMeResponse
 
 router = APIRouter()
 
@@ -36,6 +36,29 @@ def register_user(request: Request, payload: UserRegister, conn = Depends(get_db
         new_user = cur.fetchone()
         conn.commit()
         return new_user
+
+@router.post("/change-password", status_code=status.HTTP_200_OK)
+@limiter.limit("5/hour")
+def change_password(
+    request: Request,
+    payload: ChangePasswordRequest,
+    current_user = Depends(get_current_user),
+    conn = Depends(get_db),
+):
+    user_id = str(current_user["id"])
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT password FROM users WHERE id = %s;", (user_id,))
+        user = cur.fetchone()
+        if not verify_password(payload.old_password, user["password"]):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+        new_hashed = hash_password(payload.new_password)
+        cur.execute(
+            "UPDATE users SET password = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s;",
+            (new_hashed, user_id)
+        )
+        conn.commit()
+        return {"message": "Password changed successfully"}
 
 @router.post("/login", response_model=Token)
 @limiter.limit("20/minute")

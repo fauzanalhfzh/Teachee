@@ -15,6 +15,7 @@ from schemas.module import (
     ModuleListItem,
     ModuleSectionResponse,
     ModuleExerciseResponse,
+    ModuleUpdate,
 )
 from schemas.quiz import QuizResponse
 from services.ai_service import AIService
@@ -245,6 +246,67 @@ def publish_module(
 
         conn.commit()
         return {"id": result["id"], "status": result["status"]}
+
+ALLOWED_MODULE_COLUMNS = {"title", "topic"}
+
+@router.patch("/{module_id}", response_model=ModuleGenerateResponse)
+def update_module(
+    module_id: UUID,
+    payload: ModuleUpdate,
+    current_user = Depends(get_current_teacher),
+    conn = Depends(get_db),
+):
+    teacher_id = str(current_user["id"])
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT * FROM learning_modules WHERE id = %s;", (str(module_id),))
+        module = cur.fetchone()
+        if not module:
+            raise HTTPException(status_code=404, detail="Module not found")
+        if str(module["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=403, detail="You do not have permission to update this module")
+
+        update_data = payload.model_dump(exclude_unset=True)
+        if update_data:
+            update_fields = []
+            params = []
+            for key, val in update_data.items():
+                if key not in ALLOWED_MODULE_COLUMNS:
+                    raise HTTPException(status_code=400, detail=f"Invalid field: {key}")
+                update_fields.append(f"{key} = %s")
+                params.append(val)
+
+            update_fields.append("updated_at = CURRENT_TIMESTAMP")
+            params.append(str(module_id))
+
+            cur.execute(
+                f"UPDATE learning_modules SET {', '.join(update_fields)} WHERE id = %s RETURNING *;",
+                tuple(params)
+            )
+            module = cur.fetchone()
+
+        cur.execute(
+            "SELECT * FROM module_sections WHERE module_id = %s ORDER BY section_order ASC;",
+            (str(module_id),)
+        )
+        sections = cur.fetchall()
+
+        cur.execute(
+            "SELECT * FROM module_exercises WHERE module_id = %s ORDER BY exercise_order ASC;",
+            (str(module_id),)
+        )
+        exercises = cur.fetchall()
+
+        cur.execute("SELECT id FROM quizzes WHERE module_id = %s LIMIT 1;", (str(module_id),))
+        quiz_row = cur.fetchone()
+
+        conn.commit()
+
+        return {
+            **dict(module),
+            "sections": [dict(s) for s in sections],
+            "exercises": [dict(e) for e in exercises],
+            "quiz_id": quiz_row["id"] if quiz_row else None,
+        }
 
 @router.delete("/{module_id}", status_code=status.HTTP_200_OK)
 def delete_module(

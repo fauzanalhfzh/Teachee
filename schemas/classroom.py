@@ -19,6 +19,19 @@ class ClassroomUpdate(BaseModel):
 class EnrollStudentRequest(BaseModel):
     student_id: UUID
 
+class BulkEnrollRequest(BaseModel):
+    student_ids: List[UUID]
+
+class TeacherStudentListItem(BaseModel):
+    id: UUID
+    name: str
+    email: str
+    classroom_id: UUID
+    classroom_name: str
+    enrolled_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 class ClassroomResponse(BaseModel):
     id: UUID
     name: str
