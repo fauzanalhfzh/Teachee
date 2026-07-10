@@ -4,7 +4,7 @@
 - **FastAPI** (no ORM — raw SQL via psycopg2 `ThreadedConnectionPool`)
 - **PostgreSQL** with `RealDictCursor`, UUID PKs, JSONB columns (options, answers_snapshot)
 - **JWT auth** (bcrypt + pyjwt, `HTTPBearer` dependency)
-- **vLLM** for AI quiz gen (OpenAI-compatible; falls back to hardcoded question banks if unavailable)
+- **vLLM** for AI quiz gen (OpenAI-compatible)
 
 ## Project layout
 ```
@@ -19,7 +19,7 @@ app/api/v1/
   endpoints/            # one file per module, raw SQL in handlers
 services/
   vllm_client.py        # vLLM OpenAI-compatible HTTP client (httpx)
-  ai_service.py         # calls vLLM → falls back to MATH_BANK/HISTORY_BANK/DEFAULT_BANK
+  ai_service.py         # calls vLLM for AI generation (no fallback)
 schemas/                # Pydantic request/response models
 tests/                  # pytest + TestClient, separate test DB
 ```
@@ -89,7 +89,7 @@ Classroom: `Kelas 10A` (teacher_id and classroom_id printed to container logs at
 - Single AI provider: **vLLM** (OpenAI-compatible). `AI_PROVIDER` is fixed to `vllm`.
 - vLLM endpoint: `http://rocm:8000/v1` (container) or `VLLM_URL` env var; model set via `VLLM_MODEL`.
 - `services/vllm_client.py` POSTs to `{VLLM_URL}/chat/completions` and strips Qwen3 `<think>` reasoning blocks before JSON parsing.
-- Falls back to hardcoded banks (`MATH_BANK`, `HISTORY_BANK`, `DEFAULT_BANK` in `services/ai_service.py`) when vLLM is unreachable / returns no questions.
+- All generation is AI-only; no hardcoded fallback banks.
 - Gemini and Ollama clients were removed; vLLM is the only provider.
 - Report endpoint auto-seeds mock student attempts if none exist (for testing convenience)
 - Manual testing: use `.http` files in repo root (VS Code REST Client)

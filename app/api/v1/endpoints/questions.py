@@ -31,6 +31,8 @@ def regenerate_question(question_id: UUID, current_user = Depends(get_current_te
 
         # 2. Get a new replacement question from the AI Service
         new_q_data = AIService.regenerate_single_question(row["topic"])
+        if not new_q_data:
+            raise HTTPException(status_code=500, detail="Failed to regenerate question")
 
         # 3. Update the question in PostgreSQL
         cur.execute(
