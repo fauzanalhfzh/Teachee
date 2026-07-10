@@ -41,6 +41,7 @@ Pastikan Anda telah memasang tool berikut di komputer Anda:
 - Docker & Docker Compose
 - Python 3.10+ (jika ingin dijalankan secara lokal tanpa Docker)
 - PostgreSQL (jika ingin dijalankan secara lokal tanpa Docker)
+- AMD/NVIDIA GPU dengan ROCm/CUDA **(opsional)** — untuk generate gambar FLUX
 
 ---
 
@@ -81,6 +82,30 @@ Metode ini paling mudah karena Docker akan menginisialisasi database PostgreSQL,
     ```
     > `web` terhubung ke vLLM via `http://rocm:8000/v1` (lihat `VLLM_URL` di `docker-compose.yml`).
 
+5. **(Opsional) FLUX Image Generation** — generate gambar ilustrasi untuk soal:
+
+   Pastikan `HF_TOKEN` sudah diisi di `.env`:
+   ```env
+   HF_TOKEN=hf_your_token_here
+   ```
+   > Token dari [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens). Akun harus [accept license FLUX.1-dev](https://huggingface.co/black-forest-labs/FLUX.1-dev) terlebih dahulu.
+
+   Build & jalankan container:
+   ```bash
+   docker compose build flux
+   docker compose up -d --no-deps flux
+   # Tunggu loading selesai
+   docker compose logs --tail 10 flux
+   # Harus muncul: "FLUX model loaded (sequential CPU offload)"
+   ```
+
+   Generate gambar via endpoint:
+   ```
+   POST /api/v1/modules/{module_id}/generate-images
+   ```
+
+   > **GPU**: FLUX auto-detect GPU via ROCm (AMD) / CUDA (NVIDIA). Jika tidak ada GPU, fallback ke CPU (jauh lebih lambat).
+
 ### Opsi B: Menjalankan Secara Lokal (Tanpa Docker)
 
 1. Buat virtual environment Python dan aktifkan:
@@ -100,11 +125,13 @@ Metode ini paling mudah karena Docker akan menginisialisasi database PostgreSQL,
    cp .env.example .env
    ```
    Contoh isi `.env`:
-   ```env
-   DATABASE_URL=postgresql://<user>:<password>@localhost:5432/<nama_db>
-   JWT_SECRET_KEY=change-this-to-a-random-secret-key
-   JWT_ALGORITHM=HS256
-   ```
+    ```env
+    DATABASE_URL=postgresql://<user>:<password>@localhost:5432/<nama_db>
+    JWT_SECRET_KEY=change-this-to-a-random-secret-key
+    JWT_ALGORITHM=HS256
+    HF_TOKEN=hf_your_token_here      # opsional, untuk FLUX
+    FLUX_URL=http://localhost:8002    # opsional, untuk FLUX
+    ```
    > [!IMPORTANT]
    > **JWT_SECRET_KEY wajib diisi** — server tidak akan start tanpa key ini. Gunakan key acak yang aman:
    > ```bash
@@ -218,7 +245,18 @@ Database akan otomatis terisi data awal ketika pertama kali dijalankan. Gunakan 
 > [!TIP]
 > **UUID Guru** dan **UUID Kelas** default yang diperlukan saat membuat kuis baru (`POST /quizzes/generate`) akan tercetak pada log startup kontainer. Gunakan `docker logs quiz_fastapi_app` untuk melihat UUID tersebut.
 
-### 7. Perintah Docker Penting Lainnya
+### 7. FLUX Image Generation
+
+FLUX container (`teachee_flux`) menyediakan endpoint generate gambar untuk ilustrasi soal.
+
+- **Endpoint**: `POST /api/v1/modules/{module_id}/generate-images`
+- **Port**: `8002` (localhost) → `8000` (container)
+- **GPU**: auto-detect ROCm/CUDA. Tanpa GPU → CPU fallback (sangat lambat).
+- **Log**: `docker compose logs --tail 20 flux`
+
+> Pastikan `HF_TOKEN` sudah diisi di `.env` sebelum build, dan model sudah accept license di HF.
+
+### 8. Perintah Docker Penting Lainnya
 - **Menghentikan Server**:
   ```bash
   docker-compose down
