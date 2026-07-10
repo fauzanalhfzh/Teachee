@@ -89,7 +89,7 @@ Classroom: `Kelas 10A` (teacher_id and classroom_id printed to container logs at
 - Single AI provider: **vLLM** (OpenAI-compatible). `AI_PROVIDER` is fixed to `vllm`.
 - vLLM endpoint: `http://rocm:8000/v1` (container) or `VLLM_URL` env var; model set via `VLLM_MODEL`.
 - `services/vllm_client.py` POSTs to `{VLLM_URL}/chat/completions` and strips Qwen3 `<think>` reasoning blocks before JSON parsing.
-- All generation is AI-only; no hardcoded fallback banks.
+- All generation is AI-only; no hardcoded fallback banks. Prompts enforce specific, non-template content with few-shot examples.
 - Gemini and Ollama clients were removed; vLLM is the only provider.
 - Report endpoint auto-seeds mock student attempts if none exist (for testing convenience)
 - Manual testing: use `.http` files in repo root (VS Code REST Client)
