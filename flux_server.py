@@ -34,13 +34,10 @@ def load_model():
         pipe = FluxPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE, token=token)
 
         if torch.cuda.is_available():
-            try:
-                name = torch.cuda.get_device_name(0)
-                logger.info(f"GPU detected: {name}")
-                pipe.to("cuda")
-                logger.info("FLUX model loaded on GPU")
-            except Exception as gpu_err:
-                logger.warning(f"GPU load failed ({gpu_err}), falling back to CPU")
+            name = torch.cuda.get_device_name(0)
+            logger.info(f"GPU detected: {name}")
+            pipe.enable_sequential_cpu_offload()
+            logger.info("FLUX model loaded (sequential CPU offload)")
         else:
             logger.warning("No GPU detected, running on CPU (slow)")
     except Exception as e:
