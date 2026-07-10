@@ -63,17 +63,12 @@ class VllmClient:
     def generate(
         prompt: str,
         num_questions: int = 5,
-        temperature: float = 0.3,
+        temperature: float = 0.7,
     ) -> Optional[List[Dict[str, Any]]]:
         user_prompt = (
             f"Topik: {prompt}\n\n"
             f"Buatkan {num_questions} soal pilihan ganda tentang topik di atas.\n"
-            f"Output JSON array dengan tepat {num_questions} soal.\n\n"
-            f"PENTING:\n"
-            f"- Soal harus spesifik, jangan mengulang judul topik di dalam teks soal\n"
-            f"- JANGAN gunakan pola generik seperti 'Pernyataan A', 'Faktor X', 'Konsep A'\n"
-            f"- Setiap soal harus memiliki jawaban konkret (angka, nama tokoh, istilah spesifik)\n"
-            f"- Variasikan tingkat kesulitan (mudah, sedang, sulit)"
+            f"Output JSON array dengan tepat {num_questions} soal."
         )
 
         headers = {"Content-Type": "application/json"}
@@ -155,7 +150,7 @@ class VllmClient:
     def generate_content(
         prompt: str,
         num_sections: int = 4,
-        temperature: float = 0.4,
+        temperature: float = 0.8,
     ) -> Optional[List[Dict[str, Any]]]:
         user_prompt = (
             f"Topik: {prompt}\n\n"
@@ -163,18 +158,21 @@ class VllmClient:
             f"Output JSON array dengan tepat {num_sections} section. "
             f"Setiap section memiliki format:\n"
             f"{{\n"
-            f"  \"title\": \"judul section yang spesifik\",\n"
-            f"  \"content\": \"teks materi yang panjang dan informatif (min 3 paragraf) — berisi fakta konkret, bukan template generik\",\n"
+            f"  \"title\": \"judul section\",\n"
+            f"  \"content\": \"teks materi (min 3 paragraf)\",\n"
             f"  \"image_prompt\": \"deskripsi prompt untuk ilustrasi gambar section ini\"\n"
-            f"}}\n"
-            f"PENTING: Konten harus spesifik tentang topik. Jangan mengulang judul topik di dalam konten. "
-            f"Gunakan bahasa Indonesia yang baik dan benar."
+            f"}}"
         )
         content_system = (
-            "Anda adalah asisten pembuat materi pembelajaran. "
+            "Anda adalah asisten pembuat materi pembelajaran berkualitas tinggi untuk siswa SMA/SMK. "
             "Anda HARUS merespon HANYA dengan JSON object yang valid, tanpa teks lain, tanpa markdown. "
             "Bungkus array section dalam object dengan key \"sections\": { \"sections\": [...] }. "
-            "Buat materi yang informatif, mudah dipahami, dengan contoh-contoh relevan."
+            "ATURAN PENTING:\n"
+            "- Konten harus SPESIFIK dan faktual tentang topik yang diberikan\n"
+            "- JANGAN mengulang judul topik di dalam teks konten\n"
+            "- JANGAN gunakan template generik atau placeholder\n"
+            "- Setiap section minimal 3 paragraf dengan penjelasan konkret dan contoh nyata\n"
+            "- Gunakan bahasa Indonesia yang baik dan benar"
         )
         return VllmClient._call_vllm(user_prompt, content_system, temperature, 4096)
 
@@ -182,50 +180,47 @@ class VllmClient:
     def generate_exercises(
         prompt: str,
         num_exercises: int = 6,
-        temperature: float = 0.3,
+        temperature: float = 0.8,
     ) -> Optional[List[Dict[str, Any]]]:
         user_prompt = (
             f"Topik: {prompt}\n\n"
-            f"Buatkan {num_exercises} latihan interaktif berkualitas tinggi tentang topik di atas.\n\n"
-            f"PENTING: Setiap soal harus spesifik dan relevan dengan topik. "
-            f"JANGAN gunakan placeholder generik seperti 'Pernyataan A', 'Faktor X', 'Konsep A'. "
-            f"JANGAN mengulang judul topik di dalam teks soal. "
-            f"Buat pertanyaan yang menguji pemahaman nyata siswa.\n\n"
-            f"CONTOH BURUK (JANGAN DITIRU):\n"
-            f"- question_text: 'Manakah pernyataan yang benar tentang topik ini?'\n"
-            f'- options: ["Pernyataan A (Benar)", "Pernyataan B", "Pernyataan C", "Pernyataan D"]\n\n'
-            f"CONTOH BAIK:\n"
-            f"- question_text: 'Apa output dari perintah print(type(3.14)) di Python?'\n"
-            f"- options: [\"<class 'float'>\", \"<class 'int'>\", \"<class 'str'>\", \"<class 'decimal'>\"]\n\n"
-            f"Variasi tipe latihan:\n"
-            f"1. multiple_choice: 4 opsi dengan jawaban yang spesifik (nama, angka, istilah nyata)\n"
-            f"2. fill_blank: isian singkat dengan jawaban kata/frasa spesifik\n"
-            f"3. true_false: pernyataan faktual yang bisa diverifikasi\n"
-            f"4. matching: pasangkan istilah nyata dengan definisi/penjelasan yang akurat\n"
-            f"5. ordering: urutkan langkah/proses yang benar secara kronologis\n\n"
-            f"Format JSON per latihan:\n"
-            f"{{\n"
-            f'  "exercise_type": "multiple_choice/fill_blank/true_false/matching/ordering",\n'
-            f'  "question_text": "teks soal yang spesifik dan jelas",\n'
-            f'  "options": [... atau null untuk fill_blank],\n'
-            f'  "correct_answer": "jawaban benar yang spesifik",\n'
-            f'  "explanation": "penjelasan singkat tapi informatif",\n'
-            f'  "points": 10\n'
-            f"}}\n\n"
-            f"Gunakan bahasa Indonesia. Variasikan tipe latihan secara merata. "
-            f"Pastikan jawaban correct_answer IDENTIK dengan salah satu opsi (untuk multiple_choice)."
+            f"Buatkan {num_exercises} latihan interaktif berkualitas tinggi tentang topik di atas.\n"
+            f"Output JSON array dengan tepat {num_exercises} latihan. "
+            f"Variasikan tipe latihan secara merata."
         )
         exercise_system = (
             "Anda adalah asisten pembuat latihan interaktif berkualitas tinggi untuk siswa SMA/SMK. "
             "Anda HARUS merespon HANYA dengan JSON object yang valid, tanpa teks lain, tanpa markdown. "
-            "Bungkus array latihan dalam object dengan key \"exercises\": { \"exercises\": [...] }. "
+            "Bungkus array latihan dalam object dengan key \"exercises\": { \"exercises\": [...] }.\n\n"
             "ATURAN PENTING:\n"
-            "- Setiap soal harus spesifik dan relevan dengan topik yang diberikan\n"
-            "- Jawaban harus konkret (nama tokoh, angka, istilah spesifik), bukan placeholder generik\n"
-            "- Jangan gunakan pola 'Pernyataan A', 'Faktor X', 'Metode A' sebagai jawaban\n"
-            "- Jangan mengulang judul topik di dalam teks soal\n"
-            "- Buat latihan yang menguji pemahaman, bukan sekadar menghafal definisi\n"
-            "- Variasikan tingkat kesulitan: ada yang mudah, sedang, dan sulit"
+            "- Setiap soal harus SPESIFIK dan relevan dengan topik\n"
+            "- JANGAN mengulang judul topik di dalam teks soal\n"
+            "- JANGAN gunakan placeholder generik seperti 'Pernyataan A', 'Faktor X', 'Konsep A', 'Metode A'\n"
+            "- Jawaban harus konkret (nama tokoh, angka, istilah spesifik)\n"
+            "- Variasikan tingkat kesulitan: mudah, sedang, sulit\n\n"
+            "CONTOH BURUK (JANGAN DITIRU):\n"
+            "- question_text: 'Manakah pernyataan yang benar tentang topik ini?'\n"
+            "- options: ['Pernyataan A (Benar)', 'Pernyataan B', 'Pernyataan C', 'Pernyataan D']\n\n"
+            "CONTOH BAIK:\n"
+            "- question_text: 'Apa output dari perintah print(type(3.14)) di Python?'\n"
+            "- options: [\"<class 'float'>\", \"<class 'int'>\", \"<class 'str'>\", \"<class 'decimal'>\"]\n\n"
+            "Variasi tipe latihan:\n"
+            "1. multiple_choice: 4 opsi dengan jawaban spesifik\n"
+            "2. fill_blank: isian singkat, jawaban kata/frasa spesifik\n"
+            "3. true_false: pernyataan faktual yang bisa diverifikasi\n"
+            "4. matching: pasangkan istilah dengan definisi yang akurat\n"
+            "5. ordering: urutkan langkah/proses secara kronologis\n\n"
+            "Format JSON per latihan:\n"
+            "{\n"
+            '  "exercise_type": "...",\n'
+            '  "question_text": "...",\n'
+            '  "options": [... atau null],\n'
+            '  "correct_answer": "...",\n'
+            '  "explanation": "...",\n'
+            '  "points": 10\n'
+            "}\n"
+            "Gunakan bahasa Indonesia. "
+            "Pastikan correct_answer IDENTIK dengan salah satu opsi (untuk multiple_choice)."
         )
         return VllmClient._call_vllm(user_prompt, exercise_system, temperature, 4096)
 
@@ -233,7 +228,7 @@ class VllmClient:
     def _call_vllm(
         user_prompt: str,
         system_prompt: str,
-        temperature: float = 0.3,
+        temperature: float = 0.7,
         max_tokens: int = 4096,
     ) -> Optional[List[Dict[str, Any]]]:
         headers = {"Content-Type": "application/json"}
