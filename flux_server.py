@@ -13,6 +13,7 @@ logger = logging.getLogger("flux")
 app = FastAPI(title="FLUX Image Generator")
 
 MODEL_ID = os.getenv("FLUX_MODEL", "black-forest-labs/FLUX.1-dev")
+HF_TOKEN = os.getenv("HF_TOKEN", "")
 DTYPE = torch.bfloat16
 
 pipe = None
@@ -28,7 +29,8 @@ class GenerateRequest(BaseModel):
 def load_model():
     global pipe
     logger.info(f"Loading FLUX model: {MODEL_ID}")
-    pipe = FluxPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE)
+    token = HF_TOKEN if HF_TOKEN else None
+    pipe = FluxPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE, token=token)
     pipe.to("cuda")
     pipe.enable_model_cpu_offload()
     logger.info("FLUX model loaded")
