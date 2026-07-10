@@ -56,7 +56,7 @@ services:
       - AI_PROVIDER=vllm
       - VLLM_URL=http://rocm:8000/v1
       - VLLM_MODEL=Qwen3-30B-A3B
-      - JWT_SECRET_KEY=d3aea72647a1f9847954e1e745e3d878c86482d4dab9d01b52a910f92243ddac
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - FLUX_URL=http://flux:8000
 
   pgadmin:

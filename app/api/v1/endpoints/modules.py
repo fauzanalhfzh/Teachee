@@ -1,5 +1,6 @@
 import json
 import uuid
+import asyncio
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status, Query
 from psycopg2.extras import RealDictCursor
@@ -8,6 +9,7 @@ from typing import List, Optional
 
 from core.database import get_db
 from core.limiter import limiter
+from core.sql import assert_teacher_owns, safe_commit
 from app.api.v1.dependencies import get_current_teacher
 from schemas.module import (
     ModuleGenerateRequest,
@@ -223,13 +225,11 @@ def get_module(
     conn = Depends(get_db),
 ):
     teacher_id = str(current_user["id"])
+    assert_teacher_owns(conn, "learning_modules", str(module_id), teacher_id, "Module not found")
+
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute("SELECT * FROM learning_modules WHERE id = %s;", (str(module_id),))
         module = cur.fetchone()
-        if not module:
-            raise HTTPException(status_code=404, detail="Module not found")
-        if str(module["teacher_id"]) != teacher_id:
-            raise HTTPException(status_code=404, detail="Module not found")
 
         cur.execute(
             "SELECT * FROM module_sections WHERE module_id = %s ORDER BY section_order ASC;",
@@ -260,14 +260,9 @@ def publish_module(
     conn = Depends(get_db),
 ):
     teacher_id = str(current_user["id"])
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT id, teacher_id FROM learning_modules WHERE id = %s;", (str(module_id),))
-        module = cur.fetchone()
-        if not module:
-            raise HTTPException(status_code=404, detail="Module not found")
-        if str(module["teacher_id"]) != teacher_id:
-            raise HTTPException(status_code=403, detail="You do not have permission to publish this module")
+    assert_teacher_owns(conn, "learning_modules", str(module_id), teacher_id, "Module not found")
 
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             "UPDATE learning_modules SET status = 'published', updated_at = CURRENT_TIMESTAMP WHERE id = %s RETURNING id, status;",
             (str(module_id),)
@@ -282,7 +277,7 @@ def publish_module(
                 (quiz["id"],)
             )
 
-        conn.commit()
+        safe_commit(conn)
         return {"id": result["id"], "status": result["status"]}
 
 IMAGES_DIR = Path("static/images")
@@ -294,14 +289,9 @@ async def generate_module_images(
     conn = Depends(get_db),
 ):
     teacher_id = str(current_user["id"])
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT id, teacher_id FROM learning_modules WHERE id = %s;", (str(module_id),))
-        module = cur.fetchone()
-        if not module:
-            raise HTTPException(status_code=404, detail="Module not found")
-        if str(module["teacher_id"]) != teacher_id:
-            raise HTTPException(status_code=403, detail="You do not have permission")
+    assert_teacher_owns(conn, "learning_modules", str(module_id), teacher_id, "Module not found")
 
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             "SELECT id, image_prompt FROM module_sections WHERE module_id = %s AND image_url IS NULL AND image_prompt IS NOT NULL ORDER BY section_order ASC;",
             (str(module_id),)
@@ -326,7 +316,6 @@ async def generate_module_images(
         image_url = f"/static/images/{sec_id}.jpg"
         return {"section_id": sec_id, "status": "generated", "image_url": image_url, "_image_url": image_url}
 
-    import asyncio
     results = await asyncio.gather(*[_generate_one(s) for s in sections])
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -336,7 +325,7 @@ async def generate_module_images(
                     "UPDATE module_sections SET image_url = %s WHERE id = %s;",
                     (r["_image_url"], r["section_id"])
                 )
-        conn.commit()
+        safe_commit(conn)
 
     clean = [{"section_id": r["section_id"], "status": r["status"], "image_url": r.get("image_url"), "error": r.get("error")} for r in results]
     return {"message": f"Generated {len(clean)} images", "images": clean}
@@ -351,14 +340,9 @@ def update_module(
     conn = Depends(get_db),
 ):
     teacher_id = str(current_user["id"])
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT * FROM learning_modules WHERE id = %s;", (str(module_id),))
-        module = cur.fetchone()
-        if not module:
-            raise HTTPException(status_code=404, detail="Module not found")
-        if str(module["teacher_id"]) != teacher_id:
-            raise HTTPException(status_code=403, detail="You do not have permission to update this module")
+    module = assert_teacher_owns(conn, "learning_modules", str(module_id), teacher_id, "Module not found")
 
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
         update_data = payload.model_dump(exclude_unset=True)
         if update_data:
             update_fields = []
@@ -393,7 +377,7 @@ def update_module(
         cur.execute("SELECT id FROM quizzes WHERE module_id = %s LIMIT 1;", (str(module_id),))
         quiz_row = cur.fetchone()
 
-        conn.commit()
+        safe_commit(conn)
 
         return {
             **dict(module),
@@ -409,15 +393,10 @@ def delete_module(
     conn = Depends(get_db),
 ):
     teacher_id = str(current_user["id"])
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT id, teacher_id FROM learning_modules WHERE id = %s;", (str(module_id),))
-        module = cur.fetchone()
-        if not module:
-            raise HTTPException(status_code=404, detail="Module not found")
-        if str(module["teacher_id"]) != teacher_id:
-            raise HTTPException(status_code=403, detail="You do not have permission to delete this module")
+    assert_teacher_owns(conn, "learning_modules", str(module_id), teacher_id, "Module not found")
 
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute("DELETE FROM learning_modules WHERE id = %s RETURNING id;", (str(module_id),))
         cur.fetchone()
-        conn.commit()
+        safe_commit(conn)
         return {"message": "Module deleted successfully"}

@@ -74,7 +74,7 @@ def generate_image(payload: GenerateRequest):
     buf = io.BytesIO()
     image.save(buf, format="JPEG", quality=85)
     buf.seek(0)
-    return Response(content=buf.getvalue(), media_type="image/png")
+    return Response(content=buf.getvalue(), media_type="image/jpeg")
 
 @app.get("/health")
 def health():
