@@ -12,6 +12,21 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  flux:
+    build:
+      context: .
+      dockerfile: Dockerfile.flux
+    container_name: teachee_flux
+    restart: always
+    command: uvicorn flux_server:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8002:8000"
+    networks:
+      - teachee-vllm
+    environment:
+      - FLUX_MODEL=black-forest-labs/FLUX.1-dev
+      - HSA_OVERRIDE_GFX_VERSION=11.0.0
+
   web:
     build: .
     container_name: teachee_webapp
@@ -32,6 +47,7 @@ services:
       - VLLM_URL=http://rocm:8000/v1
       - VLLM_MODEL=Qwen3-30B-A3B
       - JWT_SECRET_KEY=d3aea72647a1f9847954e1e745e3d878c86482d4dab9d01b52a910f92243ddac
+      - FLUX_URL=http://flux:8000
 
   pgadmin:
     image: dpage/pgadmin4

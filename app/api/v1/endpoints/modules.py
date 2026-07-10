@@ -19,6 +19,8 @@ from schemas.module import (
 )
 from schemas.quiz import QuizResponse
 from services.ai_service import AIService
+from services.flux_client import FluxClient
+from pathlib import Path
 
 logger = logging.getLogger("uvicorn.error")
 router = APIRouter()
@@ -246,6 +248,57 @@ def publish_module(
 
         conn.commit()
         return {"id": result["id"], "status": result["status"]}
+
+IMAGES_DIR = Path("static/images")
+
+@router.post("/{module_id}/generate-images", status_code=status.HTTP_200_OK)
+def generate_module_images(
+    module_id: UUID,
+    current_user = Depends(get_current_teacher),
+    conn = Depends(get_db),
+):
+    teacher_id = str(current_user["id"])
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT id, teacher_id FROM learning_modules WHERE id = %s;", (str(module_id),))
+        module = cur.fetchone()
+        if not module:
+            raise HTTPException(status_code=404, detail="Module not found")
+        if str(module["teacher_id"]) != teacher_id:
+            raise HTTPException(status_code=403, detail="You do not have permission")
+
+        cur.execute(
+            "SELECT id, image_prompt FROM module_sections WHERE module_id = %s AND image_url IS NULL AND image_prompt IS NOT NULL ORDER BY section_order ASC;",
+            (str(module_id),)
+        )
+        sections = cur.fetchall()
+
+        if not sections:
+            return {"message": "No sections need image generation", "images": []}
+
+        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+        results = []
+
+        for sec in sections:
+            sec_id = str(sec["id"])
+            prompt = sec["image_prompt"]
+
+            image_bytes = FluxClient.generate_image(prompt)
+            if not image_bytes:
+                results.append({"section_id": sec_id, "status": "failed", "error": "FLUX unavailable"})
+                continue
+
+            file_path = IMAGES_DIR / f"{sec_id}.png"
+            file_path.write_bytes(image_bytes)
+
+            image_url = f"/static/images/{sec_id}.png"
+            cur.execute(
+                "UPDATE module_sections SET image_url = %s WHERE id = %s;",
+                (image_url, sec_id)
+            )
+            results.append({"section_id": sec_id, "status": "generated", "image_url": image_url})
+
+        conn.commit()
+        return {"message": f"Generated {len(results)} images", "images": results}
 
 ALLOWED_MODULE_COLUMNS = {"title", "topic"}
 
