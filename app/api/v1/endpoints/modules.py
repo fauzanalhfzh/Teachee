@@ -30,6 +30,7 @@ router = APIRouter()
 def generate_module(
     request: Request,
     payload: ModuleGenerateRequest,
+    force: bool = Query(False, description="Regenerate from AI even if cached module exists"),
     current_user = Depends(get_current_teacher),
     conn = Depends(get_db),
 ):
@@ -43,6 +44,41 @@ def generate_module(
             raise HTTPException(status_code=403, detail="You do not have access to this classroom")
 
         topic = payload.topic.strip()
+
+        if not force:
+            cur.execute(
+                """
+                SELECT id FROM learning_modules
+                WHERE classroom_id = %s AND LOWER(topic) = LOWER(%s)
+                ORDER BY created_at DESC LIMIT 1;
+                """,
+                (str(payload.classroom_id), topic)
+            )
+            existing = cur.fetchone()
+            if existing:
+                cached_id = str(existing["id"])
+                cur.execute("SELECT * FROM learning_modules WHERE id = %s;", (cached_id,))
+                module_row = cur.fetchone()
+                cur.execute(
+                    "SELECT * FROM module_sections WHERE module_id = %s ORDER BY section_order ASC;",
+                    (cached_id,)
+                )
+                section_rows = cur.fetchall()
+                cur.execute(
+                    "SELECT * FROM module_exercises WHERE module_id = %s ORDER BY exercise_order ASC;",
+                    (cached_id,)
+                )
+                exercise_rows = cur.fetchall()
+                cur.execute("SELECT id FROM quizzes WHERE module_id = %s LIMIT 1;", (cached_id,))
+                quiz_row = cur.fetchone()
+
+                return {
+                    **dict(module_row),
+                    "sections": [dict(s) for s in section_rows],
+                    "exercises": [dict(e) for e in exercise_rows],
+                    "quiz_id": quiz_row["id"] if quiz_row else None,
+                }
+
         module_id = str(uuid.uuid4())
 
         title = f"Materi: {topic}"
