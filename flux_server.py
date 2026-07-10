@@ -72,7 +72,7 @@ def generate_image(payload: GenerateRequest):
     ).images[0]
 
     buf = io.BytesIO()
-    image.save(buf, format="PNG", optimize=True)
+    image.save(buf, format="JPEG", quality=85)
     buf.seek(0)
     return Response(content=buf.getvalue(), media_type="image/png")
 

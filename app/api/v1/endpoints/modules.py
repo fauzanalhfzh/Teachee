@@ -284,10 +284,10 @@ async def generate_module_images(
         if not image_bytes:
             return {"section_id": sec_id, "status": "failed", "error": "FLUX unavailable"}
 
-        file_path = IMAGES_DIR / f"{sec_id}.png"
+        file_path = IMAGES_DIR / f"{sec_id}.jpg"
         file_path.write_bytes(image_bytes)
 
-        image_url = f"/static/images/{sec_id}.png"
+        image_url = f"/static/images/{sec_id}.jpg"
         return {"section_id": sec_id, "status": "generated", "image_url": image_url, "_image_url": image_url}
 
     import asyncio
