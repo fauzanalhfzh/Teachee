@@ -6,8 +6,8 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password123
-      POSTGRES_DB: quiz_db
       POSTGRES_HOST_AUTH_METHOD: md5
+      POSTGRES_DB: teachee_db
     ports:
       - "5432:5432"
     volumes:
@@ -39,7 +39,7 @@ services:
 
   web:
     build: .
-    container_name: teachee_webapp
+    container_name: teachee_app
     restart: always
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ports:
@@ -52,7 +52,7 @@ services:
       - default
       - teachee-vllm
     environment:
-      - DATABASE_URL=postgresql://postgres:password123@db:5432/quiz_db
+      - DATABASE_URL=postgresql://postgres:password123@db:5432/teachee_db
       - AI_PROVIDER=vllm
       - VLLM_URL=http://rocm:8000/v1
       - VLLM_MODEL=Qwen3-30B-A3B
@@ -66,7 +66,6 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@school.com
       PGADMIN_DEFAULT_PASSWORD: adminpassword
-      POSTGRES_HOST_AUTH_METHOD: md5
     ports:
       - "8080:80"
     depends_on:
