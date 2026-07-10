@@ -95,5 +95,8 @@ async def health():
         except Exception:
             status["vllm"] = "unreachable"
 
+    from services.flux_client import FluxClient
+    status["flux"] = "healthy" if FluxClient.check_health_sync() else "unavailable"
+
     overall = "healthy" if status["database"] == "healthy" else "degraded"
     return {"status": overall, "checks": status}

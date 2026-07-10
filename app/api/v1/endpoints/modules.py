@@ -252,7 +252,7 @@ def publish_module(
 IMAGES_DIR = Path("static/images")
 
 @router.post("/{module_id}/generate-images", status_code=status.HTTP_200_OK)
-def generate_module_images(
+async def generate_module_images(
     module_id: UUID,
     current_user = Depends(get_current_teacher),
     conn = Depends(get_db),
@@ -275,30 +275,35 @@ def generate_module_images(
         if not sections:
             return {"message": "No sections need image generation", "images": []}
 
-        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-        results = []
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-        for sec in sections:
-            sec_id = str(sec["id"])
-            prompt = sec["image_prompt"]
+    async def _generate_one(sec) -> dict:
+        sec_id = str(sec["id"])
+        prompt = sec["image_prompt"]
+        image_bytes = await FluxClient.generate_image_async(prompt)
+        if not image_bytes:
+            return {"section_id": sec_id, "status": "failed", "error": "FLUX unavailable"}
 
-            image_bytes = FluxClient.generate_image(prompt)
-            if not image_bytes:
-                results.append({"section_id": sec_id, "status": "failed", "error": "FLUX unavailable"})
-                continue
+        file_path = IMAGES_DIR / f"{sec_id}.png"
+        file_path.write_bytes(image_bytes)
 
-            file_path = IMAGES_DIR / f"{sec_id}.png"
-            file_path.write_bytes(image_bytes)
+        image_url = f"/static/images/{sec_id}.png"
+        return {"section_id": sec_id, "status": "generated", "image_url": image_url, "_image_url": image_url}
 
-            image_url = f"/static/images/{sec_id}.png"
-            cur.execute(
-                "UPDATE module_sections SET image_url = %s WHERE id = %s;",
-                (image_url, sec_id)
-            )
-            results.append({"section_id": sec_id, "status": "generated", "image_url": image_url})
+    import asyncio
+    results = await asyncio.gather(*[_generate_one(s) for s in sections])
 
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        for r in results:
+            if r["status"] == "generated":
+                cur.execute(
+                    "UPDATE module_sections SET image_url = %s WHERE id = %s;",
+                    (r["_image_url"], r["section_id"])
+                )
         conn.commit()
-        return {"message": f"Generated {len(results)} images", "images": results}
+
+    clean = [{"section_id": r["section_id"], "status": r["status"], "image_url": r.get("image_url"), "error": r.get("error")} for r in results]
+    return {"message": f"Generated {len(clean)} images", "images": clean}
 
 ALLOWED_MODULE_COLUMNS = {"title", "topic"}
 
