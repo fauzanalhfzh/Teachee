@@ -73,10 +73,17 @@ Classroom: `Kelas 10A` (teacher_id and classroom_id printed to container logs at
 ## API prefixes
 - All routes under `/api/v1/`
 - Auth: `/auth/register`, `/auth/login`, `/auth/me`
-- Quizzes: `/quizzes/generate`, `/quizzes/{id}/publish`, `/quizzes/{id}/reports`
+- Quizzes: `/quizzes/generate`, `/quizzes/{id}/publish`, `/quizzes/{id}/reports`, `/quizzes` (GET list), `/quizzes/{id}` (GET detail), `/quizzes/{id}` (PATCH update)
 - Questions: `/questions/{id}/regenerate`, `/questions/{id}` (PATCH/DELETE)
 - Classrooms: standard CRUD at `/classrooms`
 - Student: `/student/quizzes`, `/student/quizzes/{id}/take`, `/student/quizzes/{id}/submit`
+
+## Quiz time window & one-time attempt
+- Quizzes have optional `start_time` / `end_time` (ISO 8601 timestamps) and `duration_minutes` (integer)
+- Students can only view/take a quiz within its time window; 403 otherwise
+- Active quiz list filters out ended quizzes (`end_time > CURRENT_TIMESTAMP`)
+- **One-time rule**: `student_attempts.score IS NOT NULL` check prevents re-submission; `started_at` tracks when student began
+- Set `start_time`/`end_time`/`duration_minutes` on generation or via PATCH `/quizzes/{id}`
 
 ## AI details
 - Single AI provider: **vLLM** (OpenAI-compatible). `AI_PROVIDER` is fixed to `vllm`.
