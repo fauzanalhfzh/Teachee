@@ -31,7 +31,7 @@ def register_user(request: Request, payload: UserRegister, conn = Depends(get_db
             VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING *;
             """,
-            (user_id, payload.name, payload.email.lower(), hashed_pwd, "student", payload.avatar)
+            (user_id, payload.name, payload.email.lower(), hashed_pwd, payload.role.value, payload.avatar)
         )
         new_user = cur.fetchone()
         conn.commit()
