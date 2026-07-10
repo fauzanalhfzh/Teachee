@@ -1,5 +1,6 @@
 import enum
-from pydantic import BaseModel, ConfigDict, EmailStr
+import re
+from pydantic import BaseModel, ConfigDict, field_validator
 from uuid import UUID
 from typing import Optional
 from datetime import datetime
@@ -19,6 +20,20 @@ class UserRegister(BaseModel):
         if len(value) < 8:
             raise ValueError("Password must be at least 8 characters")
         return value
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    avatar: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', v):
+            raise ValueError("Invalid email format")
+        return v.lower()
 
 class UserLogin(BaseModel):
     email: str
