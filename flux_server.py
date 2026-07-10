@@ -29,11 +29,15 @@ class GenerateRequest(BaseModel):
 def load_model():
     global pipe
     logger.info(f"Loading FLUX model: {MODEL_ID}")
-    token = HF_TOKEN if HF_TOKEN else None
-    pipe = FluxPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE, token=token)
-    pipe.to("cuda")
-    pipe.enable_model_cpu_offload()
-    logger.info("FLUX model loaded")
+    try:
+        token = HF_TOKEN if HF_TOKEN else None
+        pipe = FluxPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE, token=token)
+        logger.info("Model downloaded, moving to GPU...")
+        pipe.to("cuda")
+        logger.info("FLUX model loaded on CUDA")
+    except Exception as e:
+        logger.error(f"Failed to load FLUX model: {e}")
+        raise
 
 @app.post("/generate")
 def generate_image(payload: GenerateRequest):
